@@ -1,0 +1,291 @@
+// ============================================================
+// SCHEMA PRISMA — Hally Boutique
+// Arquitectura: modular por dominios + Repository Pattern
+// Pensado para escalar de "portafolio" a "tienda real"
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ------------------------------------------------------------
+// ENUMS
+// ------------------------------------------------------------
+
+enum Role {
+  CUSTOMER
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING     // orden creada, esperando confirmación de pago
+  PAID        // pago confirmado (vía webhook)
+  PROCESSING  // en preparación/empaque
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+// Preparado para múltiples proveedores (Stripe hoy, Wompi/PayU después)
+enum PaymentProvider {
+  STRIPE
+  WOMPI
+  PAYU
+}
+
+enum Size {
+  XS
+  S
+  M
+  L
+  XL
+  XXL
+}
+
+// ------------------------------------------------------------
+// USERS & AUTH
+// ------------------------------------------------------------
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  passwordHash  String
+  firstName     String
+  lastName      String
+  phone         String?
+  role          Role      @default(CUSTOMER)
+
+  addresses     Address[]
+  cart          Cart?
+  orders        Order[]
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("users")
+}
+
+model Address {
+  id            String    @id @default(uuid())
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId        String
+
+  fullName      String
+  phone         String
+  line1         String
+  line2         String?
+  city          String
+  state         String
+  country       String    @default("CO")
+  postalCode    String?
+  isDefault     Boolean   @default(false)
+
+  ordersShipping Order[]  @relation("ShippingAddress")
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("addresses")
+}
+
+// ------------------------------------------------------------
+// CATALOG
+// ------------------------------------------------------------
+
+model Category {
+  id          String     @id @default(uuid())
+  name        String     @unique
+  slug        String     @unique
+  description String?
+
+  products    Product[]
+
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@map("categories")
+}
+
+model Product {
+  id            String      @id @default(uuid())
+  name          String
+  slug          String      @unique
+  description   String
+  basePrice     Decimal     @db.Decimal(10, 2)  // precio antes de impuestos
+  currency      String      @default("COP")     // preparado para multi-moneda futuro
+  isActive      Boolean     @default(true)
+
+  category      Category    @relation(fields: [categoryId], references: [id])
+  categoryId    String
+
+  images        ProductImage[]
+  variants      Variant[]
+
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([categoryId])
+  @@map("products")
+}
+
+model ProductImage {
+  id          String    @id @default(uuid())
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId   String
+  url         String    // URL de Cloudinary
+  altText     String?
+  position    Int       @default(0)
+
+  @@map("product_images")
+}
+
+// Clave en ropa: la variante (talla/color) es la unidad real de stock,
+// NO el producto. Nunca modelar stock a nivel de Product.
+model Variant {
+  id          String      @id @default(uuid())
+  product     Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId   String
+
+  size        Size
+  color       String
+  sku         String      @unique
+  stock       Int         @default(0)
+  priceDelta  Decimal     @default(0) @db.Decimal(10, 2) // ajuste sobre basePrice, si aplica
+
+  cartItems   CartItem[]
+  orderItems  OrderItem[]
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@unique([productId, size, color])
+  @@index([productId])
+  @@map("variants")
+}
+
+// ------------------------------------------------------------
+// CART
+// ------------------------------------------------------------
+
+model Cart {
+  id          String      @id @default(uuid())
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String      @unique
+
+  items       CartItem[]
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@map("carts")
+}
+
+model CartItem {
+  id          String    @id @default(uuid())
+  cart        Cart      @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  cartId      String
+
+  variant     Variant   @relation(fields: [variantId], references: [id])
+  variantId   String
+
+  quantity    Int       @default(1)
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([cartId, variantId])
+  @@map("cart_items")
+}
+
+// ------------------------------------------------------------
+// ORDERS
+// ------------------------------------------------------------
+
+model Order {
+  id                String        @id @default(uuid())
+  user              User          @relation(fields: [userId], references: [id])
+  userId            String
+
+  status            OrderStatus   @default(PENDING)
+
+  // Snapshot de montos en el momento de la compra — nunca recalcular
+  // desde el catálogo actual, los precios pueden haber cambiado.
+  subtotal          Decimal       @db.Decimal(10, 2)
+  taxAmount         Decimal       @default(0) @db.Decimal(10, 2) // IVA u otros impuestos
+  shippingAmount    Decimal       @default(0) @db.Decimal(10, 2)
+  total             Decimal       @db.Decimal(10, 2)
+  currency          String        @default("COP")
+
+  shippingAddress   Address       @relation("ShippingAddress", fields: [shippingAddressId], references: [id])
+  shippingAddressId String
+
+  items             OrderItem[]
+  payment           Payment?
+
+  // Idempotencia: clave única enviada por el cliente para evitar
+  // órdenes duplicadas si el checkout se reintenta.
+  idempotencyKey    String        @unique
+
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@map("orders")
+}
+
+model OrderItem {
+  id            String    @id @default(uuid())
+  order         Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId       String
+
+  variant       Variant   @relation(fields: [variantId], references: [id])
+  variantId     String
+
+  // Snapshot: guardamos nombre/precio/talla tal como estaban al comprar,
+  // independiente de que el producto cambie o se elimine después.
+  productName   String
+  size          Size
+  color         String
+  unitPrice     Decimal   @db.Decimal(10, 2)
+  quantity      Int
+
+  @@map("order_items")
+}
+
+// ------------------------------------------------------------
+// PAYMENTS
+// ------------------------------------------------------------
+
+model Payment {
+  id                    String          @id @default(uuid())
+  order                 Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId               String          @unique
+
+  provider              PaymentProvider @default(STRIPE)
+  status                PaymentStatus   @default(PENDING)
+
+  // Referencia externa del proveedor (Stripe PaymentIntent ID, etc.)
+  // NUNCA se guardan datos de tarjeta aquí.
+  providerReferenceId   String          @unique
+
+  amount                Decimal         @db.Decimal(10, 2)
+  currency              String          @default("COP")
+
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+
+  @@map("payments")
+}
