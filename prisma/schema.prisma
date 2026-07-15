@@ -163,6 +163,7 @@ model Variant {
   sku         String      @unique
   stock       Int         @default(0)
   priceDelta  Decimal     @default(0) @db.Decimal(10, 2) // ajuste sobre basePrice, si aplica
+  isActive    Boolean     @default(true)
 
   cartItems   CartItem[]
   orderItems  OrderItem[]

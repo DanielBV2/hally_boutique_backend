@@ -49,6 +49,12 @@ src/modules/<dominio>/
 - Descuento de stock al crear una orden debe ser transaccional (usar `prisma.$transaction`)
   para evitar condiciones de carrera.
 - Nunca manejar ni almacenar datos de tarjeta directamente — solo IDs de referencia de Stripe/proveedor.
+- Variant tiene isActive (soft delete), igual que Product. GET público de productos
+  filtra variantes con isActive: true.
+- IMPORTANTE (pendiente para módulo orders): el descuento de stock al confirmar una
+  compra debe hacerse con prisma.$transaction y actualización condicional
+  (WHERE stock >= quantity) para evitar condiciones de carrera en compras simultáneas.
+  Nunca hacer read-then-write simple para descontar stock.
 
 ## Validación
 Todas las rutas que reciben `body`, `params` o `query` deben usar Zod +

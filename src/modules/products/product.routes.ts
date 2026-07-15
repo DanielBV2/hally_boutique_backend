@@ -3,74 +3,77 @@ import { validateSchemaMiddleware } from "../../middlewares/validateSchemaMiddle
 import { authMiddleware } from "../../middlewares/authMiddleware.js";
 import { roleMiddleware } from "../../middlewares/roleMiddleware.js";
 import {
-  listProductsQuerySchema,
-  productBySlugParamsSchema,
   createProductSchema,
-  productByIdParamsSchema,
   updateProductSchema,
+  listProductsQuerySchema,
   addProductImageSchema,
-  productImageParamsSchema,
+  idParamsSchema,
+  slugParamsSchema,
+  imageParamsSchema,
 } from "./product.schema.js";
-import * as productController from "./product.controller.js";
+import { ProductController } from "./product.controller.js";
+import { PrismaProductRepository } from "./product.repository.js";
+import { ProductServiceImpl } from "./product.service.js";
+import { prisma } from "../../config/prisma.js";
+
+const repository = new PrismaProductRepository(prisma);
+const service = new ProductServiceImpl(repository);
+const controller = new ProductController(service);
 
 const router = Router();
-
-// ─── Public ────────────────────────────────────────────────────
 
 router.get(
   "/",
   validateSchemaMiddleware(listProductsQuerySchema, "query"),
-  productController.listProducts,
+  controller.list,
 );
 
 router.get(
   "/:slug",
-  validateSchemaMiddleware(productBySlugParamsSchema, "params"),
-  productController.getProductBySlug,
+  validateSchemaMiddleware(slugParamsSchema, "params"),
+  controller.getBySlug,
 );
-
-// ─── Admin (auth + role required) ──────────────────────────────
 
 router.post(
   "/",
   authMiddleware,
   roleMiddleware("ADMIN"),
   validateSchemaMiddleware(createProductSchema, "body"),
-  productController.createProduct,
+  controller.create,
 );
 
 router.patch(
   "/:id",
   authMiddleware,
   roleMiddleware("ADMIN"),
-  validateSchemaMiddleware(productByIdParamsSchema, "params"),
+  validateSchemaMiddleware(idParamsSchema, "params"),
   validateSchemaMiddleware(updateProductSchema, "body"),
-  productController.updateProduct,
+  controller.update,
 );
 
 router.delete(
   "/:id",
   authMiddleware,
   roleMiddleware("ADMIN"),
-  validateSchemaMiddleware(productByIdParamsSchema, "params"),
-  productController.deleteProduct,
+  validateSchemaMiddleware(idParamsSchema, "params"),
+  controller.remove,
 );
 
 router.post(
   "/:id/images",
   authMiddleware,
   roleMiddleware("ADMIN"),
-  validateSchemaMiddleware(productByIdParamsSchema, "params"),
+  validateSchemaMiddleware(idParamsSchema, "params"),
   validateSchemaMiddleware(addProductImageSchema, "body"),
-  productController.addImage,
+  controller.addImage,
 );
 
 router.delete(
   "/:id/images/:imageId",
   authMiddleware,
   roleMiddleware("ADMIN"),
-  validateSchemaMiddleware(productImageParamsSchema, "params"),
-  productController.removeImage,
+  validateSchemaMiddleware(imageParamsSchema, "params"),
+  controller.removeImage,
 );
 
 export { router as productRoutes };

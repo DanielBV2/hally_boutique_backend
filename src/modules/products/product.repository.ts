@@ -1,273 +1,211 @@
-import type { Prisma, Product, ProductImage, Variant } from "@prisma/client";
-import { prisma } from "../../config/prisma.js";
+import { PrismaClient, Prisma } from "@prisma/client";
 
-// ─── Find helpers (used by service for validation) ─────────────
-
-export async function findCategoryById(id: string): Promise<{ id: string; name: string } | null> {
-  return prisma.category.findUnique({
-    where: { id },
-    select: { id: true, name: true },
-  });
+export interface ProductFilters {
+  categoryId: string | undefined;
+  search: string | undefined;
+  minPrice: number | undefined;
+  maxPrice: number | undefined;
 }
 
-export async function findProductBySlug(slug: string): Promise<
-  | (Product & {
-      category: { id: string; name: string; slug: string };
-      images: ProductImage[];
-      variants: Variant[];
-    })
-  | null
-> {
-  return prisma.product.findUnique({
-    where: { slug },
-    include: {
-      category: { select: { id: true, name: true, slug: true } },
-      images: { orderBy: { position: "asc" } },
-      variants: { orderBy: { createdAt: "asc" } },
-    },
-  });
+export interface Pagination {
+  page: number;
+  limit: number;
 }
 
-export async function findProductById(id: string): Promise<
-  | (Product & {
-      category: { id: string; name: string; slug: string };
-      images: ProductImage[];
-      variants: Variant[];
-    })
-  | null
-> {
-  return prisma.product.findUnique({
-    where: { id },
-    include: {
-      category: { select: { id: true, name: true, slug: true } },
-      images: { orderBy: { position: "asc" } },
-      variants: { orderBy: { createdAt: "asc" } },
-    },
-  });
-}
-
-export async function findProductByIdActive(id: string) {
-  return prisma.product.findFirst({
-    where: { id, isActive: true },
-    include: {
-      category: { select: { id: true, name: true, slug: true } },
-      images: { orderBy: { position: "asc" } },
-      variants: { orderBy: { createdAt: "asc" } },
-    },
-  });
-}
-
-// ─── Slug collision check ──────────────────────────────────────
-
-export async function slugExists(slug: string): Promise<boolean> {
-  const count = await prisma.product.count({ where: { slug } });
-  return count > 0;
-}
-
-// ─── SKU collision check ───────────────────────────────────────
-
-export async function skuExists(sku: string, excludeProductId?: string): Promise<boolean> {
-  const where: Prisma.VariantWhereInput = { sku };
-  if (excludeProductId) {
-    where.product = { id: { not: excludeProductId } };
-  }
-  const count = await prisma.variant.count({ where });
-  return count > 0;
-}
-
-// ─── LIST with filtering / sorting / pagination ────────────────
-
-export interface ListProductsParams {
-  search: string | null | undefined;
-  categoryId: string | null | undefined;
-  sortBy: "name" | "basePrice" | "createdAt";
+export interface SortOptions {
+  sortBy: "createdAt" | "basePrice" | "name";
   sortOrder: "asc" | "desc";
-  skip: number;
-  take: number;
 }
 
-export async function listActiveProducts(params: ListProductsParams) {
-  const { search, categoryId, sortBy, sortOrder, skip, take } = params;
-
-  const where: Prisma.ProductWhereInput = {
-    isActive: true,
-    ...(search && {
-      OR: [
-        { name: { contains: search, mode: "insensitive" } },
-        { description: { contains: search, mode: "insensitive" } },
-      ],
-    }),
-    ...(categoryId && { categoryId }),
-  };
-
-  const orderBy: Prisma.ProductOrderByWithRelationInput = {
-    [sortBy]: sortOrder,
-  };
-
-  const [products, total] = await Promise.all([
-    prisma.product.findMany({
-      where,
-      orderBy,
-      skip,
-      take,
-      include: {
-        category: { select: { name: true } },
-        images: { take: 1, orderBy: { position: "asc" } },
-      },
-    }),
-    prisma.product.count({ where }),
-  ]);
-
-  return { products, total };
-}
-
-// ─── CREATE ────────────────────────────────────────────────────
-
-export async function createProduct(data: {
+export interface CreateProductData {
   name: string;
   slug: string;
   description: string;
-  basePrice: Prisma.Decimal;
+  basePrice: number;
   currency: string;
   categoryId: string;
-  variants: {
-    size: Variant["size"];
-    color: string;
-    sku: string;
-    stock: number;
-    priceDelta: Prisma.Decimal;
-  }[];
-  images?: { url: string; altText?: string | undefined; position: number }[] | undefined;
-}) {
-  return prisma.product.create({
-    data: {
-      name: data.name,
-      slug: data.slug,
-      description: data.description,
-      basePrice: data.basePrice,
-      currency: data.currency,
-      categoryId: data.categoryId,
-      variants: {
-        create: data.variants.map((v) => ({
-          size: v.size,
-          color: v.color,
-          sku: v.sku,
-          stock: v.stock,
-          priceDelta: v.priceDelta,
-        })),
-      },
-      ...(data.images && {
-        images: {
-          create: data.images.map((img) => ({
-            url: img.url,
-            altText: img.altText ?? null,
-            position: img.position,
-          })),
-        },
+}
+
+export interface AddImageData {
+  url: string;
+  altText?: string | undefined;
+  position: number;
+}
+
+export type ProductWithRelations = Prisma.ProductGetPayload<{
+  include: {
+    category: { select: { id: true; name: true; slug: true } };
+    images: { orderBy: { position: "asc" } };
+    variants: true;
+  };
+}>;
+
+export type ProductWithListRelations = Prisma.ProductGetPayload<{
+  include: {
+    category: { select: { name: true } };
+    images: { orderBy: { position: "asc" }; take: 1 };
+  };
+}>;
+
+export interface ProductRepository {
+  findMany(
+    filters: ProductFilters,
+    pagination: Pagination,
+    sort: SortOptions,
+  ): Promise<{ products: ProductWithListRelations[]; total: number }>;
+  findBySlug(slug: string): Promise<ProductWithRelations | null>;
+  findById(id: string): Promise<ProductWithRelations | null>;
+  slugExists(slug: string, excludeId?: string): Promise<boolean>;
+  categoryExists(categoryId: string): Promise<boolean>;
+  create(data: CreateProductData): Promise<ProductWithRelations>;
+  update(
+    id: string,
+    data: Partial<CreateProductData>,
+  ): Promise<ProductWithRelations>;
+  softDelete(id: string): Promise<void>;
+  addImage(
+    productId: string,
+    data: AddImageData,
+  ): Promise<Prisma.ProductImageGetPayload<Record<string, never>>>;
+  removeImage(productId: string, imageId: string): Promise<void>;
+}
+
+const includeFull = {
+  category: { select: { id: true, name: true, slug: true } },
+  images: { orderBy: { position: "asc" as const } },
+  variants: true,
+} satisfies Prisma.ProductInclude;
+
+const includeList = {
+  category: { select: { name: true } },
+  images: { orderBy: { position: "asc" as const }, take: 1 },
+} satisfies Prisma.ProductInclude;
+
+export class PrismaProductRepository implements ProductRepository {
+  constructor(private readonly prisma: PrismaClient) {}
+
+  async findMany(
+    filters: ProductFilters,
+    pagination: Pagination,
+    sort: SortOptions,
+  ) {
+    const where = this.buildWhereClause(filters);
+    const { page, limit } = pagination;
+    const skip = (page - 1) * limit;
+
+    const [products, total] = await Promise.all([
+      this.prisma.product.findMany({
+        where,
+        include: includeList,
+        orderBy: { [sort.sortBy]: sort.sortOrder },
+        skip,
+        take: limit,
       }),
-    },
-    include: {
-      category: { select: { id: true, name: true, slug: true } },
-      images: { orderBy: { position: "asc" } },
-      variants: { orderBy: { createdAt: "asc" } },
-    },
-  });
-}
+      this.prisma.product.count({ where }),
+    ]);
 
-// ─── UPDATE ────────────────────────────────────────────────────
+    return { products, total };
+  }
 
-export async function updateProduct(
-  id: string,
-  data: {
-    name?: string;
-    slug?: string;
-    description?: string;
-    basePrice?: Prisma.Decimal;
-    currency?: string;
-    categoryId?: string;
-  },
-) {
-  return prisma.product.update({
-    where: { id },
-    data,
-    include: {
-      category: { select: { id: true, name: true, slug: true } },
-      images: { orderBy: { position: "asc" } },
-      variants: { orderBy: { createdAt: "asc" } },
-    },
-  });
-}
+  async findBySlug(slug: string) {
+    return this.prisma.product.findFirst({
+      where: { slug, isActive: true },
+      include: includeFull,
+    });
+  }
 
-// ─── SOFT DELETE ───────────────────────────────────────────────
+  async findById(id: string) {
+    return this.prisma.product.findUnique({
+      where: { id },
+      include: includeFull,
+    });
+  }
 
-export async function softDeleteProduct(id: string) {
-  return prisma.product.update({
-    where: { id },
-    data: { isActive: false },
-  });
-}
+  async slugExists(slug: string, excludeId?: string) {
+    const product = await this.prisma.product.findUnique({
+      where: { slug },
+      select: { id: true },
+    });
+    if (!product) return false;
+    if (excludeId && product.id === excludeId) return false;
+    return true;
+  }
 
-// ─── IMAGE operations ──────────────────────────────────────────
+  async categoryExists(categoryId: string) {
+    const category = await this.prisma.category.findUnique({
+      where: { id: categoryId },
+      select: { id: true },
+    });
+    return category !== null;
+  }
 
-export async function addProductImage(
-  productId: string,
-  data: { url: string; altText: string | undefined; position: number },
-) {
-  return prisma.productImage.create({
-    data: {
-      productId,
-      url: data.url,
-      altText: data.altText ?? null,
-      position: data.position,
-    },
-  });
-}
+  async create(data: CreateProductData) {
+    return this.prisma.product.create({
+      data,
+      include: includeFull,
+    });
+  }
 
-export async function deleteProductImage(imageId: string) {
-  return prisma.productImage.delete({ where: { id: imageId } });
-}
+  async update(id: string, data: Partial<CreateProductData>) {
+    return this.prisma.product.update({
+      where: { id },
+      data,
+      include: includeFull,
+    });
+  }
 
-export async function findProductImage(imageId: string, productId: string) {
-  return prisma.productImage.findFirst({
-    where: { id: imageId, productId },
-  });
-}
+  async softDelete(id: string) {
+    await this.prisma.product.update({
+      where: { id },
+      data: { isActive: false },
+    });
+  }
 
-// ─── VARIANT operations ────────────────────────────────────────
-
-export async function deleteVariantsByProductId(productId: string) {
-  return prisma.variant.deleteMany({ where: { productId } });
-}
-
-export async function upsertVariant(data: {
-  id?: string;
-  productId: string;
-  size: Variant["size"];
-  color: string;
-  sku: string;
-  stock: number;
-  priceDelta: Prisma.Decimal;
-}) {
-  if (data.id) {
-    return prisma.variant.update({
-      where: { id: data.id },
+  async addImage(productId: string, data: AddImageData) {
+    return this.prisma.productImage.create({
       data: {
-        size: data.size,
-        color: data.color,
-        sku: data.sku,
-        stock: data.stock,
-        priceDelta: data.priceDelta,
+        productId,
+        url: data.url,
+        altText: data.altText ?? null,
+        position: data.position,
       },
     });
   }
-  return prisma.variant.create({
-    data: {
-      productId: data.productId,
-      size: data.size,
-      color: data.color,
-      sku: data.sku,
-      stock: data.stock,
-      priceDelta: data.priceDelta,
-    },
-  });
+
+  async removeImage(productId: string, imageId: string) {
+    const image = await this.prisma.productImage.findFirst({
+      where: { id: imageId, productId },
+    });
+    if (!image) {
+      const { NotFoundError } = await import(
+        "../../shared/errors/app-error.js"
+      );
+      throw new NotFoundError("Image");
+    }
+    await this.prisma.productImage.delete({ where: { id: imageId } });
+  }
+
+  private buildWhereClause(filters: ProductFilters): Prisma.ProductWhereInput {
+    const where: Prisma.ProductWhereInput = { isActive: true };
+
+    if (filters.categoryId) {
+      where.categoryId = filters.categoryId;
+    }
+
+    if (filters.search) {
+      where.name = { contains: filters.search, mode: "insensitive" };
+    }
+
+    if (filters.minPrice !== undefined || filters.maxPrice !== undefined) {
+      where.basePrice = {};
+      if (filters.minPrice !== undefined) {
+        where.basePrice.gte = filters.minPrice;
+      }
+      if (filters.maxPrice !== undefined) {
+        where.basePrice.lte = filters.maxPrice;
+      }
+    }
+
+    return where;
+  }
 }

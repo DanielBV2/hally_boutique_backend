@@ -1,68 +1,81 @@
 import type { Request, Response } from "express";
-import type { ListProductsQuery, CreateProductInput, UpdateProductInput, AddProductImageInput } from "./product.schema.js";
-import * as productService from "./product.service.js";
+import type { ProductService } from "./product.service.js";
+import type { ApiResponse } from "../../shared/types/api-response.js";
+import type {
+  ListProductsQuery,
+  CreateProductInput,
+  UpdateProductInput,
+  AddProductImageInput,
+} from "./product.schema.js";
 
-// Helper to safely extract a single string param from Express 5 params
-function param(req: Request, key: string): string {
-  const val = req.params[key];
-  return Array.isArray(val) ? val[0]! : (val ?? "");
-}
+export class ProductController {
+  constructor(private readonly service: ProductService) {}
 
-// ─── GET /products ─────────────────────────────────────────────
+  list = async (req: Request, res: Response) => {
+    const query = req.query as unknown as ListProductsQuery;
 
-export async function listProducts(req: Request, res: Response) {
-  const query = req.query as unknown as ListProductsQuery;
-  const result = await productService.listProducts(query);
-  res.json({ success: true, data: result });
-}
+    const { items, total, page } = await this.service.listProducts(
+      {
+        categoryId: query.categoryId,
+        search: query.search,
+        minPrice: query.minPrice,
+        maxPrice: query.maxPrice,
+      },
+      { page: query.page, limit: query.limit },
+      { sortBy: query.sortBy, sortOrder: query.sortOrder },
+    );
 
-// ─── GET /products/:slug ───────────────────────────────────────
+    const body: ApiResponse<typeof items> = { success: true, data: items };
+    res.status(200).json(body);
+  };
 
-export async function getProductBySlug(req: Request, res: Response) {
-  const slug = param(req, "slug");
-  const product = await productService.getProductBySlug(slug);
-  res.json({ success: true, data: product });
-}
+  getBySlug = async (req: Request, res: Response) => {
+    const { slug } = req.params as { slug: string };
+    const product = await this.service.getProductBySlug(slug);
 
-// ─── POST /products ────────────────────────────────────────────
+    const body: ApiResponse<typeof product> = { success: true, data: product };
+    res.status(200).json(body);
+  };
 
-export async function createProduct(req: Request, res: Response) {
-  const input = req.body as CreateProductInput;
-  const product = await productService.createProduct(input);
-  res.status(201).json({ success: true, data: product });
-}
+  create = async (req: Request, res: Response) => {
+    const data = req.body as CreateProductInput;
+    const product = await this.service.createProduct(data);
 
-// ─── PATCH /products/:id ───────────────────────────────────────
+    const body: ApiResponse<typeof product> = { success: true, data: product };
+    res.status(201).json(body);
+  };
 
-export async function updateProduct(req: Request, res: Response) {
-  const id = param(req, "id");
-  const input = req.body as UpdateProductInput;
-  const product = await productService.updateProduct(id, input);
-  res.json({ success: true, data: product });
-}
+  update = async (req: Request, res: Response) => {
+    const { id } = req.params as { id: string };
+    const data = req.body as UpdateProductInput;
+    const product = await this.service.updateProduct(id, data);
 
-// ─── DELETE /products/:id ──────────────────────────────────────
+    const body: ApiResponse<typeof product> = { success: true, data: product };
+    res.status(200).json(body);
+  };
 
-export async function deleteProduct(req: Request, res: Response) {
-  const id = param(req, "id");
-  await productService.deleteProduct(id);
-  res.status(204).send();
-}
+  remove = async (req: Request, res: Response) => {
+    const { id } = req.params as { id: string };
+    await this.service.deleteProduct(id);
 
-// ─── POST /products/:id/images ─────────────────────────────────
+    const body: ApiResponse<null> = { success: true, data: null };
+    res.status(200).json(body);
+  };
 
-export async function addImage(req: Request, res: Response) {
-  const id = param(req, "id");
-  const input = req.body as AddProductImageInput;
-  const image = await productService.addImage(id, input);
-  res.status(201).json({ success: true, data: image });
-}
+  addImage = async (req: Request, res: Response) => {
+    const { id } = req.params as { id: string };
+    const data = req.body as AddProductImageInput;
+    await this.service.addProductImage(id, data);
 
-// ─── DELETE /products/:id/images/:imageId ──────────────────────
+    const body: ApiResponse<null> = { success: true, data: null };
+    res.status(201).json(body);
+  };
 
-export async function removeImage(req: Request, res: Response) {
-  const id = param(req, "id");
-  const imageId = param(req, "imageId");
-  await productService.removeImage(id, imageId);
-  res.status(204).send();
+  removeImage = async (req: Request, res: Response) => {
+    const { id, imageId } = req.params as { id: string; imageId: string };
+    await this.service.removeProductImage(id, imageId);
+
+    const body: ApiResponse<null> = { success: true, data: null };
+    res.status(200).json(body);
+  };
 }
