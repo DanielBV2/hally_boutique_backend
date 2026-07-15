@@ -96,7 +96,7 @@ function toDetailDTO(product: ProductWithRelations): ProductDetailDTO {
     currency: product.currency,
     category: product.category,
     images: product.images,
-    variants: product.variants.map((v) => ({
+    variants: product.variants.filter((v) => v.isActive).map((v) => ({
       id: v.id,
       size: v.size,
       color: v.color,

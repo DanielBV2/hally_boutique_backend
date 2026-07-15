@@ -1,0 +1,32 @@
+import type { Request, Response } from "express";
+import type { AuthService } from "./auth.service.js";
+import type { RegisterInput, LoginInput } from "./auth.schema.js";
+import type { ApiResponse } from "../../shared/types/api-response.js";
+
+export class AuthController {
+  constructor(private readonly service: AuthService) {}
+
+  register = async (req: Request, res: Response) => {
+    const data = req.body as RegisterInput;
+    const result = await this.service.register(data);
+
+    const body: ApiResponse<typeof result> = { success: true, data: result };
+    res.status(201).json(body);
+  };
+
+  login = async (req: Request, res: Response) => {
+    const data = req.body as LoginInput;
+    const result = await this.service.login(data);
+
+    const body: ApiResponse<typeof result> = { success: true, data: result };
+    res.status(200).json(body);
+  };
+
+  getProfile = async (req: Request, res: Response) => {
+    const userId = req.user!.id;
+    const result = await this.service.getProfile(userId);
+
+    const body: ApiResponse<typeof result> = { success: true, data: result };
+    res.status(200).json(body);
+  };
+}

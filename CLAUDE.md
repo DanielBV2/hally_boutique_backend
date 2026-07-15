@@ -83,6 +83,16 @@ Express y enrutados al errorHandler — NO se necesita wrapper catchAsync/asyncH
 ## Auth
 `authMiddleware` valida JWT del header `Authorization: Bearer <token>` e inyecta
 `req.user`. `roleMiddleware` restringe por rol (`CUSTOMER` | `ADMIN`).
+- Passwords hasheadas con bcrypt (12 rounds), nunca texto plano.
+- JWT payload mínimo: { id, email, role }. Expira según JWT_EXPIRES_IN.
+- Registro público siempre crea role: CUSTOMER. No existe endpoint para
+  autoregistrarse como ADMIN — se crean manualmente (seed/DB directa).
+- Login usa mensaje de error genérico ("Credenciales inválidas") tanto para
+  email inexistente como password incorrecta, para no filtrar qué emails existen.
+- PENDIENTE (requiere servicio de email, no implementado aún): forgot-password /
+  reset-password.
+- PENDIENTE (antes de producción real): refresh tokens — hoy solo hay access token
+  de larga duración, aceptable para desarrollo pero no ideal para producción.
 
 ## Testing
 - Unit tests: mockear repositories, testear services en aislamiento.

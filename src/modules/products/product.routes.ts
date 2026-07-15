@@ -11,27 +11,40 @@ import {
   slugParamsSchema,
   imageParamsSchema,
 } from "./product.schema.js";
+import {
+  createVariantSchema,
+  updateVariantSchema,
+  productIdParamsSchema,
+  variantParamsSchema,
+} from "./variant.schema.js";
 import { ProductController } from "./product.controller.js";
 import { PrismaProductRepository } from "./product.repository.js";
 import { ProductServiceImpl } from "./product.service.js";
+import { PrismaVariantRepository } from "./variant.repository.js";
+import { VariantServiceImpl } from "./variant.service.js";
+import { VariantController } from "./variant.controller.js";
 import { prisma } from "../../config/prisma.js";
 
-const repository = new PrismaProductRepository(prisma);
-const service = new ProductServiceImpl(repository);
-const controller = new ProductController(service);
+const productRepository = new PrismaProductRepository(prisma);
+const productService = new ProductServiceImpl(productRepository);
+const productController = new ProductController(productService);
+
+const variantRepository = new PrismaVariantRepository(prisma);
+const variantService = new VariantServiceImpl(variantRepository, productRepository);
+const variantController = new VariantController(variantService);
 
 const router = Router();
 
 router.get(
   "/",
   validateSchemaMiddleware(listProductsQuerySchema, "query"),
-  controller.list,
+  productController.list,
 );
 
 router.get(
   "/:slug",
   validateSchemaMiddleware(slugParamsSchema, "params"),
-  controller.getBySlug,
+  productController.getBySlug,
 );
 
 router.post(
@@ -39,7 +52,7 @@ router.post(
   authMiddleware,
   roleMiddleware("ADMIN"),
   validateSchemaMiddleware(createProductSchema, "body"),
-  controller.create,
+  productController.create,
 );
 
 router.patch(
@@ -48,7 +61,7 @@ router.patch(
   roleMiddleware("ADMIN"),
   validateSchemaMiddleware(idParamsSchema, "params"),
   validateSchemaMiddleware(updateProductSchema, "body"),
-  controller.update,
+  productController.update,
 );
 
 router.delete(
@@ -56,7 +69,7 @@ router.delete(
   authMiddleware,
   roleMiddleware("ADMIN"),
   validateSchemaMiddleware(idParamsSchema, "params"),
-  controller.remove,
+  productController.remove,
 );
 
 router.post(
@@ -65,7 +78,7 @@ router.post(
   roleMiddleware("ADMIN"),
   validateSchemaMiddleware(idParamsSchema, "params"),
   validateSchemaMiddleware(addProductImageSchema, "body"),
-  controller.addImage,
+  productController.addImage,
 );
 
 router.delete(
@@ -73,7 +86,41 @@ router.delete(
   authMiddleware,
   roleMiddleware("ADMIN"),
   validateSchemaMiddleware(imageParamsSchema, "params"),
-  controller.removeImage,
+  productController.removeImage,
+);
+
+router.get(
+  "/:productId/variants",
+  authMiddleware,
+  roleMiddleware("ADMIN"),
+  validateSchemaMiddleware(productIdParamsSchema, "params"),
+  variantController.listByProduct,
+);
+
+router.post(
+  "/:productId/variants",
+  authMiddleware,
+  roleMiddleware("ADMIN"),
+  validateSchemaMiddleware(productIdParamsSchema, "params"),
+  validateSchemaMiddleware(createVariantSchema, "body"),
+  variantController.create,
+);
+
+router.patch(
+  "/:productId/variants/:variantId",
+  authMiddleware,
+  roleMiddleware("ADMIN"),
+  validateSchemaMiddleware(variantParamsSchema, "params"),
+  validateSchemaMiddleware(updateVariantSchema, "body"),
+  variantController.update,
+);
+
+router.delete(
+  "/:productId/variants/:variantId",
+  authMiddleware,
+  roleMiddleware("ADMIN"),
+  validateSchemaMiddleware(variantParamsSchema, "params"),
+  variantController.remove,
 );
 
 export { router as productRoutes };
