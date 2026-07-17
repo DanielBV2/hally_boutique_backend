@@ -10,7 +10,16 @@ export function validateSchemaMiddleware(schema: ZodSchema, target: SchemaTarget
     if (!result.success) {
       throw new ValidationError('Datos inválidos', result.error.flatten());
     }
-    req[target] = result.data; // reemplaza con datos parseados/coercionados por Zod
+    if (target === 'query') {
+      Object.defineProperty(req, 'query', {
+        value: result.data,
+        writable: true,
+        configurable: true,
+        enumerable: true,
+      });
+    } else {
+      req[target] = result.data;
+    }
     next();
   };
 }

@@ -80,6 +80,13 @@ Proyecto usa Express 5. Los controllers/services usan async/await; los errores
 lanzados (throw) dentro de funciones async son capturados automáticamente por
 Express y enrutados al errorHandler — NO se necesita wrapper catchAsync/asyncHandler.
 
+Express 5 convirtió req.query en un getter que se recalcula en cada acceso
+(no solo de solo-lectura: además no persiste mutaciones simples). Object.assign
+NO es suficiente — hay que usar Object.defineProperty(req, 'query', { value,
+writable: true, configurable: true, enumerable: true }) para reemplazar la
+propiedad completa. body y params sí se pueden reasignar normalmente
+(req[target] = result.data), no cambiaron en Express 5.
+
 ## Auth
 `authMiddleware` valida JWT del header `Authorization: Bearer <token>` e inyecta
 `req.user`. `roleMiddleware` restringe por rol (`CUSTOMER` | `ADMIN`).
