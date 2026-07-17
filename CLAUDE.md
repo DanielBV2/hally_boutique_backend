@@ -101,6 +101,15 @@ propiedad completa. body y params sí se pueden reasignar normalmente
 - PENDIENTE (antes de producción real): refresh tokens — hoy solo hay access token
   de larga duración, aceptable para desarrollo pero no ideal para producción.
 
+## Categories (implementado)
+- Mismo patrón de soft delete (isActive) que Product y Variant.
+- Slug generado en el Service a partir de name, con colisión manejada igual
+  que products (sufijo numérico incremental).
+- Regla de negocio: no se puede desactivar (soft delete) una categoría que
+  tiene productos activos asociados → ConflictError.
+- No depender más de pgAdmin/Prisma Studio para crear categorías — usar
+  POST /api/categories.
+  
 ## Testing
 - Unit tests: mockear repositories, testear services en aislamiento.
 - Los repositories no se testean con mocks de Prisma — se testean contra la DB de
@@ -108,16 +117,26 @@ propiedad completa. body y params sí se pueden reasignar normalmente
 - Checkout/pagos requieren tests de integración cuidadosos (es la parte más
   sensible del sistema).
 
-## Estado actual del proyecto
-- [x] Schema de Prisma completo y migrado (User, Address, Category, Product,
-      ProductImage, Variant, Cart, CartItem, Order, OrderItem, Payment)
-- [x] PostgreSQL local corriendo, conexión funcionando
-- [x] Middlewares base (authMiddleware, validateSchemaMiddleware, errorHandler, roleMiddleware)
-- [x] Módulo `products` (siguiente paso)
-- [ ] Módulo `auth`
-- [ ] Módulo `cart`
-- [ ] Módulo `orders`
-- [ ] Módulo `payments` (Stripe)
+## Estado actual del proyecto (actualizado)
+- [x] Schema de Prisma completo y migrado
+- [x] Middlewares base — incluye fix de compatibilidad Express 5 para req.query
+- [x] Módulo auth — probado manualmente
+- [x] Módulo products — probado manualmente
+- [x] Submódulo variants (dentro de products) — probado manualmente
+- [x] Módulo categories — probado manualmente (unicidad de name, slug con
+      manejo de tildes, regla de no desactivar categorías con productos activos)
+- [x] Refactor: toSlug/generateUniqueSlug extraídos a src/shared/utils/slugify.ts,
+      reutilizados por products y categories. generateUniqueSlug recibe una
+      función checkExists(slug), no el repository completo.
+- [ ] Módulo cart (especificado, listo para implementar)
+- [ ] Módulo orders
+- [ ] Módulo payments (Stripe)
+
+## Regla operativa importante
+Nunca borrar filas directamente desde pgAdmin/Prisma Studio en tablas de
+negocio (products, orders, etc.) — rompe soft delete y trazabilidad. Esas
+herramientas son solo para consultar y para poblar datos semilla iniciales
+(ej. categorías). Todo cambio de estado real debe pasar por la API.
 
 ## Convención de commits
 Conventional Commits (`feat:`, `fix:`, `refactor:`, `test:`, `docs:`).

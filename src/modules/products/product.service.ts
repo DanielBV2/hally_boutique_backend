@@ -8,6 +8,7 @@ import type {
 } from "./product.repository.js";
 import type { ProductListItemDTO, ProductDetailDTO } from "./product.dto.js";
 import { NotFoundError } from "../../shared/errors/app-error.js";
+import { generateUniqueSlug } from "../../shared/utils/slugify.js";
 
 interface CreateProductInput {
   name: string;
@@ -43,33 +44,6 @@ export interface ProductService {
   deleteProduct(id: string): Promise<void>;
   addProductImage(productId: string, data: AddImageInput): Promise<void>;
   removeProductImage(productId: string, imageId: string): Promise<void>;
-}
-
-function toSlug(name: string): string {
-  return name
-    .toLowerCase()
-    .trim()
-    .replace(/[^\w\s-]/g, "")
-    .replace(/[\s_]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
-}
-
-async function generateUniqueSlug(
-  repository: ProductRepository,
-  name: string,
-  excludeId?: string,
-): Promise<string> {
-  const base = toSlug(name);
-  let slug = base;
-  let counter = 2;
-
-  while (await repository.slugExists(slug, excludeId)) {
-    slug = `${base}-${counter}`;
-    counter++;
-  }
-
-  return slug;
 }
 
 function toListItemDTO(product: ProductWithListRelations): ProductListItemDTO {
@@ -144,7 +118,9 @@ export class ProductServiceImpl implements ProductService {
       throw new NotFoundError("Category");
     }
 
-    const slug = await generateUniqueSlug(this.repository, data.name);
+    const slug = await generateUniqueSlug(data.name, (slug) =>
+      this.repository.slugExists(slug),
+    );
 
     const product = await this.repository.create({ ...data, slug });
     return toDetailDTO(product);
@@ -174,10 +150,8 @@ export class ProductServiceImpl implements ProductService {
     if (data.categoryId !== undefined) updateData.categoryId = data.categoryId;
 
     if (data.name !== undefined) {
-      updateData.slug = await generateUniqueSlug(
-        this.repository,
-        data.name,
-        id,
+      updateData.slug = await generateUniqueSlug(data.name, (slug) =>
+        this.repository.slugExists(slug, id),
       );
     }
 
