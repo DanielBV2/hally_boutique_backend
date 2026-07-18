@@ -130,6 +130,27 @@ Secuencia:
 
 Stripe Checkout Session (hospedado), no Payment Intents + Elements — menor
 superficie de riesgo, tu servidor nunca procesa datos de tarjeta.
+
+## Orders (implementado, sin Payment todavía)
+- POST /orders crea Order + OrderItems desde el carrito actual, snapshot
+  completo de nombre/precio/talla/color al momento de la compra.
+- NO crea Payment todavía (ese registro se crea en el módulo payments, al
+  generar la Stripe Checkout Session) — Order.payment es opcional en el schema.
+- NO descuenta stock (eso ocurre solo en el webhook de pago exitoso, dentro
+  de payments).
+- NO vacía el carrito al crear la orden (se vacía solo tras pago confirmado).
+- idempotencyKey la genera el CLIENTE (frontend), se reenvía en reintentos;
+  el Service devuelve la orden existente si ya existe una con esa key para
+  ese usuario, en vez de duplicar.
+- taxAmount y shippingAmount son 0 (placeholders) — cálculo real pendiente,
+  funcionalidad futura no diseñada aún.
+
+## Deuda técnica consciente (no bloqueante)
+- Order.shippingAddressId es referencia a Address, NO es snapshot (a
+  diferencia de OrderItem). Si el usuario edita su dirección después de
+  comprar, el historial de la orden reflejaría el cambio retroactivamente.
+  Mejora pendiente antes de producción real: copiar los campos de dirección
+  directamente en Order en el momento de la compra.
   
 ## Testing
 - Unit tests: mockear repositories, testear services en aislamiento.
