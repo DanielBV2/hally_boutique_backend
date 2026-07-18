@@ -109,6 +109,27 @@ propiedad completa. body y params sí se pueden reasignar normalmente
   tiene productos activos asociados → ConflictError.
 - No depender más de pgAdmin/Prisma Studio para crear categorías — usar
   POST /api/categories.
+
+## Orders + Payments — Decisión de arquitectura
+Flujo elegido: descuento de stock DIFERIDO hasta confirmación de pago (no al
+crear la orden). Razón: evita necesitar jobs de expiración para órdenes
+abandonadas; el trade-off aceptado es el caso raro de sobreventa en alta
+demanda simultánea, manejado con reembolso automático vía Stripe.
+
+Secuencia:
+1. POST /orders crea Order (PENDING) + Payment (PENDING) desde el carrito,
+   snapshot de OrderItems, SIN tocar stock. Genera Stripe Checkout Session.
+2. Webhook checkout.session.completed de Stripe dispara el descuento
+   transaccional de stock (prisma.$transaction, UPDATE condicional
+   WHERE stock >= quantity). Si tiene éxito: Order → PAID, Payment → SUCCEEDED,
+   se vacía el carrito. Si falla: Order → CANCELLED, Payment → FAILED,
+   reembolso automático vía Stripe API.
+3. Frontend nunca confía en la URL de redirect de Stripe para mostrar estado
+   — siempre consulta GET /orders/:id, que refleja el estado real actualizado
+   por el webhook.
+
+Stripe Checkout Session (hospedado), no Payment Intents + Elements — menor
+superficie de riesgo, tu servidor nunca procesa datos de tarjeta.
   
 ## Testing
 - Unit tests: mockear repositories, testear services en aislamiento.
@@ -123,13 +144,11 @@ propiedad completa. body y params sí se pueden reasignar normalmente
 - [x] Módulo auth — probado manualmente
 - [x] Módulo products — probado manualmente
 - [x] Submódulo variants (dentro de products) — probado manualmente
-- [x] Módulo categories — probado manualmente (unicidad de name, slug con
-      manejo de tildes, regla de no desactivar categorías con productos activos)
-- [x] Refactor: toSlug/generateUniqueSlug extraídos a src/shared/utils/slugify.ts,
-      reutilizados por products y categories. generateUniqueSlug recibe una
-      función checkExists(slug), no el repository completo.
-- [ ] Módulo cart (especificado, listo para implementar)
-- [ ] Módulo orders
+- [x] Módulo categories — probado manualmente
+- [x] Módulo cart — probado manualmente (get-or-create, incremento de
+      cantidad, validación de stock suave, ownership de items, disponibilidad
+      en tiempo real con isAvailable/availableStock)
+- [ ] Módulo orders (siguiente — el más delicado hasta ahora)
 - [ ] Módulo payments (Stripe)
 
 ## Regla operativa importante
