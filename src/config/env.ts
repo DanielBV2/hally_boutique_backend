@@ -14,6 +14,11 @@ const envSchema = z.object({
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
   CORS_ORIGIN: z.string().default("http://localhost:5173"),
+  WOMPI_PUBLIC_KEY: z.string().min(1),
+  WOMPI_PRIVATE_KEY: z.string().min(1),
+  WOMPI_INTEGRITY_SECRET: z.string().min(1),
+  WOMPI_EVENTS_SECRET: z.string().min(1),
+  WOMPI_REDIRECT_URL: z.string().url(),
 });
 
 const parsed = envSchema.safeParse(process.env);

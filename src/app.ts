@@ -8,6 +8,7 @@ import { categoryRoutes } from "./modules/categories/category.routes.js";
 import { cartRoutes } from "./modules/cart/cart.routes.js";
 import { addressRoutes } from "./modules/addresses/address.routes.js";
 import { orderRoutes } from "./modules/orders/order.routes.js";
+import { paymentRoutes } from "./modules/payments/payment.routes.js";
 
 const app = express();
 
@@ -24,6 +25,7 @@ app.use("/api/categories", categoryRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/addresses", addressRoutes);
 app.use("/api/orders", orderRoutes);
+app.use("/api/payments", paymentRoutes);
 
 app.use(errorHandler);
 

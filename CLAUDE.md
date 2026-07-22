@@ -114,22 +114,30 @@ propiedad completa. body y params sí se pueden reasignar normalmente
 Flujo elegido: descuento de stock DIFERIDO hasta confirmación de pago (no al
 crear la orden). Razón: evita necesitar jobs de expiración para órdenes
 abandonadas; el trade-off aceptado es el caso raro de sobreventa en alta
-demanda simultánea, manejado con reembolso automático vía Stripe.
+demanda simultánea, manejado con reembolso automático vía Wompi.
+
+Proveedor de pagos: **Wompi** (Bancolombia). Stripe fue la decisión original,
+pero no está disponible para cuentas constituidas en Colombia (confirmado
+julio 2026) — se descartó antes de implementar nada. El enum PaymentProvider
+en el schema ya contempla WOMPI.
 
 Secuencia:
 1. POST /orders crea Order (PENDING) + Payment (PENDING) desde el carrito,
-   snapshot de OrderItems, SIN tocar stock. Genera Stripe Checkout Session.
-2. Webhook checkout.session.completed de Stripe dispara el descuento
+   snapshot de OrderItems, SIN tocar stock. Genera un link de Wompi Web
+   Checkout (hospedado — el cliente nunca ingresa datos de tarjeta en
+   nuestro servidor).
+2. Webhook de Wompi (evento de transacción aprobada) dispara el descuento
    transaccional de stock (prisma.$transaction, UPDATE condicional
    WHERE stock >= quantity). Si tiene éxito: Order → PAID, Payment → SUCCEEDED,
    se vacía el carrito. Si falla: Order → CANCELLED, Payment → FAILED,
-   reembolso automático vía Stripe API.
-3. Frontend nunca confía en la URL de redirect de Stripe para mostrar estado
+   reembolso automático vía API de Wompi.
+3. Frontend nunca confía en la URL de redirect de Wompi para mostrar estado
    — siempre consulta GET /orders/:id, que refleja el estado real actualizado
    por el webhook.
 
-Stripe Checkout Session (hospedado), no Payment Intents + Elements — menor
-superficie de riesgo, tu servidor nunca procesa datos de tarjeta.
+Wompi Web Checkout (hospedado, ambiente Sandbox para desarrollo), no
+integración de formulario de tarjeta propio — menor superficie de riesgo,
+tu servidor nunca procesa datos de tarjeta. Moneda nativa COP, sin conversión.
 
 ## Orders (implementado, sin Payment todavía)
 - POST /orders crea Order + OrderItems desde el carrito actual, snapshot
@@ -145,6 +153,60 @@ superficie de riesgo, tu servidor nunca procesa datos de tarjeta.
 - taxAmount y shippingAmount son 0 (placeholders) — cálculo real pendiente,
   funcionalidad futura no diseñada aún.
 
+## Payments — Detalles técnicos de integración Wompi
+Ambientes: Sandbox (https://sandbox.wompi.co/v1) y Producción
+(https://production.wompi.co/v1), completamente separados, cada uno con
+su propio set de llaves y URL de eventos.
+
+4 llaves necesarias (prefijo _test_ en sandbox, _prod_ en producción):
+- pub_test_... : llave pública, va en el formulario de checkout (frontend-safe)
+- prv_test_... : llave privada, para llamadas autenticadas a la API de Wompi
+- test_integrity_... : secreto de integridad, firma el checkout (SOLO backend)
+- test_events_... : secreto de eventos, valida el checksum del webhook (SOLO backend)
+
+Flujo de checkout (Web Checkout, formulario HTML hospedado):
+1. Backend genera la firma de integridad: SHA256(reference + amount_in_cents
+   + currency + secreto_integridad) — reference es nuestro Order.idempotencyKey,
+   ya único por diseño.
+2. Backend devuelve al frontend los parámetros necesarios (public-key, currency,
+   amount-in-cents, reference, signature de integridad, redirect-url) para que
+   el frontend arme el formulario que apunta a https://checkout.wompi.co/p/.
+3. Cliente completa el pago en la página de Wompi (fuera de nuestro dominio).
+4. Wompi redirige de vuelta a redirect-url (solo informativo, NUNCA se usa
+   para confirmar el pago).
+5. Wompi envía un webhook (evento transaction.updated) a nuestra URL de
+   eventos configurada en el Dashboard de Wompi (una URL distinta por
+   ambiente: sandbox y producción).
+6. Backend valida el checksum del webhook: SHA256(transaction.id +
+   transaction.status + transaction.amount_in_cents + timestamp +
+   secreto_eventos), comparado contra header X-Event-Checksum.
+7. Si válido y status === "APPROVED": descuento transaccional de stock,
+   Order → PAID, Payment → SUCCEEDED, se vacía el carrito.
+   Si status === "DECLINED" o "ERROR": Order → CANCELLED, Payment → FAILED.
+8. Responder siempre 200 al webhook (Wompi reintenta hasta 3 veces en 24h
+   si no recibe 200).
+
+## Payments — Implementación (Wompi)
+- POST /api/orders/:orderId/checkout: valida ownership + status PENDING,
+  calcula amount_in_cents, genera signature de integridad (SHA256), crea
+  Payment (PENDING), devuelve datos para que el frontend arme el formulario
+  de Wompi Web Checkout.
+- POST /api/payments/webhook: SIN authMiddleware (lo llama Wompi, no un
+  usuario). Seguridad vía checksum (verifyEventChecksum), no JWT.
+- Checksum inválido → 401, no se procesa el evento.
+- Idempotencia: si Order.status !== PENDING al recibir el webhook, se ignora
+  (ya procesado antes).
+- APPROVED + stock disponible → Order: PAID, Payment: SUCCEEDED, se vacía
+  el carrito, descuento transaccional de stock (WHERE stock >= quantity).
+- APPROVED pero sin stock suficiente → Order: CANCELLED, Payment: FAILED.
+  PENDIENTE: automatizar reembolso vía API de Wompi (endpoint no confirmado
+  aún, revisar antes de producción real).
+- DECLINED/VOIDED/ERROR → Order: CANCELLED, Payment: FAILED.
+- PENDING (ej. algunos pagos con PSE) → no se hace nada, se espera próximo webhook.
+- Requiere ngrok (o similar) para exponer localhost durante pruebas, ya que
+  Wompi necesita una URL pública para enviar el webhook — se configura en
+  el Dashboard de Wompi, sección Eventos.
+  
 ## Deuda técnica consciente (no bloqueante)
 - Order.shippingAddressId es referencia a Address, NO es snapshot (a
   diferencia de OrderItem). Si el usuario edita su dirección después de
@@ -166,11 +228,16 @@ superficie de riesgo, tu servidor nunca procesa datos de tarjeta.
 - [x] Módulo products — probado manualmente
 - [x] Submódulo variants (dentro de products) — probado manualmente
 - [x] Módulo categories — probado manualmente
-- [x] Módulo cart — probado manualmente (get-or-create, incremento de
-      cantidad, validación de stock suave, ownership de items, disponibilidad
-      en tiempo real con isAvailable/availableStock)
-- [ ] Módulo orders (siguiente — el más delicado hasta ahora)
-- [ ] Módulo payments (Stripe)
+- [x] Refactor: toSlug/generateUniqueSlug en src/shared/utils/slugify.ts
+- [x] Módulo cart — probado manualmente
+- [x] Módulo addresses — probado manualmente (ownership, exclusividad de
+      isDefault, bloqueo de borrado con órdenes asociadas confirmado con 409)
+- [x] Módulo orders — probado manualmente (snapshot de items, idempotencia
+      real confirmada, validación de stock, ownership en listado/detalle,
+      NO descuenta stock, NO vacía carrito, NO crea Payment todavía)
+- [ ] Módulo payments (Stripe) — SIGUIENTE. Aquí se completa el flujo:
+      Checkout Session, webhook, descuento transaccional de stock, vaciado
+      de carrito tras pago confirmado.
 
 ## Regla operativa importante
 Nunca borrar filas directamente desde pgAdmin/Prisma Studio en tablas de

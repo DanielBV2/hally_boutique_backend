@@ -1,5 +1,6 @@
 import { PrismaClient, Prisma } from "@prisma/client";
 import type { CreateOrderData, OrderWithItems, Pagination } from "./order.types.js";
+import type { OrderStatus } from "@prisma/client";
 
 export interface OrderRepository {
   findByIdempotencyKey(userId: string, key: string): Promise<OrderWithItems | null>;
@@ -9,6 +10,7 @@ export interface OrderRepository {
   ): Promise<{ orders: OrderWithItems[]; total: number }>;
   findByIdWithItems(id: string): Promise<OrderWithItems | null>;
   createWithItems(data: CreateOrderData): Promise<OrderWithItems>;
+  updateStatus(orderId: string, status: OrderStatus, tx?: Prisma.TransactionClient): Promise<void>;
 }
 
 const includeItems = {
@@ -74,6 +76,14 @@ export class PrismaOrderRepository implements OrderRepository {
         },
         include: includeItems,
       });
+    });
+  }
+
+  async updateStatus(orderId: string, status: OrderStatus, tx?: Prisma.TransactionClient) {
+    const client = tx ?? this.prisma;
+    await client.order.update({
+      where: { id: orderId },
+      data: { status },
     });
   }
 }

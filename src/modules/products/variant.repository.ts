@@ -35,6 +35,11 @@ export interface VariantRepository {
     data: UpdateVariantData,
   ): Promise<Prisma.VariantGetPayload<Record<string, never>>>;
   softDelete(id: string): Promise<void>;
+  decrementStockIfAvailable(
+    variantId: string,
+    quantity: number,
+    tx: Prisma.TransactionClient,
+  ): Promise<boolean>;
 }
 
 export class PrismaVariantRepository implements VariantRepository {
@@ -114,5 +119,17 @@ export class PrismaVariantRepository implements VariantRepository {
       where: { id },
       data: { isActive: false },
     });
+  }
+
+  async decrementStockIfAvailable(
+    variantId: string,
+    quantity: number,
+    tx: Prisma.TransactionClient,
+  ) {
+    const { count } = await tx.variant.updateMany({
+      where: { id: variantId, stock: { gte: quantity } },
+      data: { stock: { decrement: quantity } },
+    });
+    return count > 0;
   }
 }
