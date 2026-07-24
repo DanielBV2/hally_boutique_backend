@@ -1,3 +1,5 @@
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
 import express from "express";
 import cors from "cors";
 import { env } from "./config/env.js";
@@ -10,6 +12,9 @@ import { addressRoutes } from "./modules/addresses/address.routes.js";
 import { orderRoutes } from "./modules/orders/order.routes.js";
 import { paymentRoutes } from "./modules/payments/payment.routes.js";
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
 const app = express();
 
 app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }));
@@ -18,6 +23,10 @@ app.use(express.json({ limit: "10kb" }));
 app.get("/health", (_req, res) => {
   res.json({ status: "ok" });
 });
+
+// TODO: temporal, solo para servir test-checkout.html durante pruebas de
+// Wompi — remover antes de producción o cuando exista un frontend real.
+app.use(express.static(join(__dirname, "../public")));
 
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);

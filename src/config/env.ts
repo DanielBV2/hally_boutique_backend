@@ -19,6 +19,7 @@ const envSchema = z.object({
   WOMPI_INTEGRITY_SECRET: z.string().min(1),
   WOMPI_EVENTS_SECRET: z.string().min(1),
   WOMPI_REDIRECT_URL: z.string().url(),
+  WOMPI_API_BASE_URL: z.string().url().default("https://sandbox.wompi.co/v1"),
 });
 
 const parsed = envSchema.safeParse(process.env);

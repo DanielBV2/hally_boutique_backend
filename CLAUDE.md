@@ -206,7 +206,51 @@ Flujo de checkout (Web Checkout, formulario HTML hospedado):
 - Requiere ngrok (o similar) para exponer localhost durante pruebas, ya que
   Wompi necesita una URL pública para enviar el webhook — se configura en
   el Dashboard de Wompi, sección Eventos.
-  
+
+  ## Payments (Wompi) — Verificación completa
+Los 3 escenarios críticos fueron probados manualmente en sandbox y confirmados
+funcionando correctamente:
+1. Pago APROBADO con stock disponible → Order: PAID, Payment: SUCCEEDED,
+   stock descontado correctamente, carrito vaciado.
+2. Pago DECLINADO → Order: CANCELLED, Payment: FAILED, sin efectos
+   secundarios (stock y carrito intactos).
+3. Pago APROBADO pero SIN stock disponible (cambió entre checkout y pago) →
+   Order: CANCELLED, Payment: FAILED, stock no queda negativo ni con
+   descuento parcial. Confirma que el sistema no confía ciegamente en el
+   estado de Wompi cuando el inventario real no lo permite.
+
+PENDIENTE (no bloqueante, anotado desde el diseño original): automatizar
+reembolso vía API de Wompi para el caso 3 — actualmente el dinero del
+cliente quedaría cobrado por Wompi sin reembolso automático de nuestro
+lado. Antes de producción real, hay que implementar esto explícitamente.
+
+## Reembolso automático (Wompi Void) — Implementado
+Payment.providerTransactionId (nuevo campo, nullable, unique) guarda el ID
+real de transacción de Wompi (transaction.id del webhook), distinto de
+providerReferenceId (que es nuestra reference/idempotencyKey).
+
+Cuando un pago es APPROVED pero el stock ya no está disponible (condición
+de carrera cubierta desde el diseño original de orders+payments):
+1. Se intenta anular la transacción vía POST /v1/transactions/{id}/void
+   en la API de Wompi (requiere WOMPI_PRIVATE_KEY).
+2. Si el void tiene éxito: Payment.status → REFUNDED.
+3. Si el void falla (ej. transacción ya liquidada bancariamente, fuera de
+   ventana de anulación): Payment.status → FAILED, se loguea claramente
+   como "requiere reembolso MANUAL urgente" — este caso no se puede
+   garantizar 100% automático por restricciones del ciclo bancario, está
+   fuera de nuestro control total.
+
+Variable de entorno nueva: WOMPI_API_BASE_URL (sandbox: https://sandbox.wompi.co/v1,
+producción: https://production.wompi.co/v1).
+
+## Reembolso automático (Wompi Void) — Verificado end-to-end
+Probado en sandbox: pago APPROVED con stock insuficiente → void ejecutado
+automáticamente vía API de Wompi → Payment.status: REFUNDED,
+providerTransactionId guardado correctamente, Order.status: CANCELLED.
+Confirmado también del lado de Wompi (dashboard de transacciones muestra
+la transacción anulada). Sin necesidad de log de "reembolso manual" en
+este caso — el void tuvo éxito en el primer intento.
+
 ## Deuda técnica consciente (no bloqueante)
 - Order.shippingAddressId es referencia a Address, NO es snapshot (a
   diferencia de OrderItem). Si el usuario edita su dirección después de
@@ -223,21 +267,17 @@ Flujo de checkout (Web Checkout, formulario HTML hospedado):
 
 ## Estado actual del proyecto (actualizado)
 - [x] Schema de Prisma completo y migrado
-- [x] Middlewares base — incluye fix de compatibilidad Express 5 para req.query
-- [x] Módulo auth — probado manualmente
-- [x] Módulo products — probado manualmente
-- [x] Submódulo variants (dentro de products) — probado manualmente
-- [x] Módulo categories — probado manualmente
-- [x] Refactor: toSlug/generateUniqueSlug en src/shared/utils/slugify.ts
-- [x] Módulo cart — probado manualmente
-- [x] Módulo addresses — probado manualmente (ownership, exclusividad de
-      isDefault, bloqueo de borrado con órdenes asociadas confirmado con 409)
-- [x] Módulo orders — probado manualmente (snapshot de items, idempotencia
-      real confirmada, validación de stock, ownership en listado/detalle,
-      NO descuenta stock, NO vacía carrito, NO crea Payment todavía)
-- [ ] Módulo payments (Stripe) — SIGUIENTE. Aquí se completa el flujo:
-      Checkout Session, webhook, descuento transaccional de stock, vaciado
-      de carrito tras pago confirmado.
+- [x] Middlewares base
+- [x] Módulo auth — probado
+- [x] Módulo products + variants — probado
+- [x] Módulo categories — probado
+- [x] Módulo cart — probado
+- [x] Módulo addresses — probado
+- [x] Módulo orders — probado
+- [x] Módulo payments (Wompi) — FLUJO COMPLETO VERIFICADO END-TO-END en
+      sandbox: checkout generado, pago aprobado en Wompi, webhook recibido
+      y procesado, Order → PAID, Payment → SUCCEEDED, stock descontado,
+      carrito vaciado. Hito principal del proyecto alcanzado.
 
 ## Regla operativa importante
 Nunca borrar filas directamente desde pgAdmin/Prisma Studio en tablas de

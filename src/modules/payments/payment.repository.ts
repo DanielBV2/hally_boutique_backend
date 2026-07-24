@@ -12,6 +12,7 @@ export interface PaymentRepository {
     currency: string;
   }): Promise<Payment>;
   updateStatus(id: string, status: PaymentStatus): Promise<Payment>;
+  updateProviderTransactionId(id: string, providerTransactionId: string): Promise<Payment>;
 }
 
 export class PrismaPaymentRepository implements PaymentRepository {
@@ -56,6 +57,13 @@ export class PrismaPaymentRepository implements PaymentRepository {
     return this.prisma.payment.update({
       where: { id },
       data: { status },
+    });
+  }
+
+  async updateProviderTransactionId(id: string, providerTransactionId: string) {
+    return this.prisma.payment.update({
+      where: { id },
+      data: { providerTransactionId },
     });
   }
 }

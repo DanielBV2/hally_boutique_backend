@@ -7,6 +7,7 @@ import type { CartRepository } from "../cart/cart.repository.js";
 import { NotFoundError, ConflictError, UnauthorizedError } from "../../shared/errors/app-error.js";
 import { env } from "../../config/env.js";
 import { generateIntegritySignature, verifyEventChecksum } from "../../shared/utils/wompiSignature.js";
+import { voidWompiTransaction } from "../../shared/utils/wompiClient.js";
 
 export interface VariantStockRepository {
   decrementStockIfAvailable(variantId: string, quantity: number, tx: unknown): Promise<boolean>;
@@ -88,6 +89,8 @@ export class PaymentServiceImpl implements PaymentService {
       return;
     }
 
+    await this.paymentRepository.updateProviderTransactionId(payment.id, transaction.id);
+
     if (payment.order.status !== "PENDING") {
       return;
     }
@@ -115,8 +118,20 @@ export class PaymentServiceImpl implements PaymentService {
         } catch {
           if (!allStockAvailable) {
             await this.orderRepository.updateStatus(payment.order.id, "CANCELLED");
-            await this.paymentRepository.updateStatus(payment.id, "FAILED");
-            // TODO: reembolso automático vía API de Wompi — pendiente de implementar antes de producción real
+
+            const voidResult = await voidWompiTransaction(
+              transaction.id,
+              env.WOMPI_PRIVATE_KEY,
+            );
+
+            if (voidResult.success) {
+              await this.paymentRepository.updateStatus(payment.id, "REFUNDED");
+            } else {
+              await this.paymentRepository.updateStatus(payment.id, "FAILED");
+              console.error(
+                `⚠️ REEMBOLSO MANUAL REQUERIDO — Payment ${payment.id}, Order ${payment.order.id}, razón: ${voidResult.error}`,
+              );
+            }
           }
           return;
         }
