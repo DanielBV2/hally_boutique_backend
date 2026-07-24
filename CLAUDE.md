@@ -265,6 +265,16 @@ este caso — el void tuvo éxito en el primer intento.
 - Checkout/pagos requieren tests de integración cuidadosos (es la parte más
   sensible del sistema).
 
+## Testing automatizado — Fase 1 (unitarios)
+Vitest configurado. Tests unitarios de orders y payments implementados,
+mockeando repositories (sin DB real) — cubren los casos críticos de negocio
+ya validados manualmente: idempotencia, validación de stock, snapshot de
+OrderItems, los 3 escenarios de webhook de pago (aprobado, declinado,
+aprobado-sin-stock con void automático).
+Comando: npm test (una vez) / npm run test:watch (modo watch).
+PENDIENTE: tests de integración contra DB de test real (fase 2, no
+implementada aún) para cart, products, categories, addresses, auth.
+
 ## Estado actual del proyecto (actualizado)
 - [x] Schema de Prisma completo y migrado
 - [x] Middlewares base
