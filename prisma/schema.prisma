@@ -233,6 +233,17 @@ model Order {
   shippingAddress   Address       @relation("ShippingAddress", fields: [shippingAddressId], references: [id])
   shippingAddressId String
 
+  // Snapshot de dirección al momento de la compra — fuente de verdad,
+  // la relación shippingAddress puede cambiar si el usuario edita su Address.
+  shippingFullName   String
+  shippingPhone      String
+  shippingLine1      String
+  shippingLine2      String?
+  shippingCity       String
+  shippingState      String
+  shippingCountry    String
+  shippingPostalCode String?
+
   items             OrderItem[]
   payment           Payment?
 

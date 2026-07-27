@@ -20,6 +20,14 @@ export interface CreateOrderData {
   total: number;
   shippingAddressId: string;
   idempotencyKey: string;
+  shippingFullName: string;
+  shippingPhone: string;
+  shippingLine1: string;
+  shippingLine2: string | null;
+  shippingCity: string;
+  shippingState: string;
+  shippingCountry: string;
+  shippingPostalCode: string | null;
   items: CreateOrderItemData[];
 }
 

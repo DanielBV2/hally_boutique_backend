@@ -257,7 +257,23 @@ este caso — el void tuvo éxito en el primer intento.
   comprar, el historial de la orden reflejaría el cambio retroactivamente.
   Mejora pendiente antes de producción real: copiar los campos de dirección
   directamente en Order en el momento de la compra.
-  
+
+## Deuda técnica — Snapshot de dirección en Order — RESUELTO
+Order ahora guarda snapshot completo de la dirección de envío al momento
+de la compra (shippingFullName, shippingPhone, shippingLine1, shippingLine2,
+shippingCity, shippingState, shippingCountry, shippingPostalCode — todos
+NOT NULL excepto Line2 y PostalCode). shippingAddressId se mantiene como
+referencia, pero el snapshot es la fuente de verdad para mostrar/facturar
+— nunca leer desde la relación order.shippingAddress.
+
+Se limpiaron todas las órdenes/payments/orderItems de prueba antes de la
+migración (eran solo datos desechables, no había necesidad de preservarlos
+ni de campos nullable por compatibilidad retroactiva).
+
+18/18 tests automatizados siguen pasando tras el cambio — confirma que la
+suite de testing (fase 1) está cumpliendo su propósito de proteger contra
+regresiones en cambios de lógica de negocio.
+
 ## Testing
 - Unit tests: mockear repositories, testear services en aislamiento.
 - Los repositories no se testean con mocks de Prisma — se testean contra la DB de
@@ -274,6 +290,34 @@ aprobado-sin-stock con void automático).
 Comando: npm test (una vez) / npm run test:watch (modo watch).
 PENDIENTE: tests de integración contra DB de test real (fase 2, no
 implementada aún) para cart, products, categories, addresses, auth.
+
+## Testing automatizado — Fase 1 (unitarios) — COMPLETADO
+18/18 tests pasando. Cobertura:
+- OrderServiceImpl (7 tests): carrito vacío, ownership de address, validación
+  de stock, idempotencia, snapshot correcto, ownership en getMyOrderById.
+- PaymentServiceImpl (11 tests): ownership/status de checkout, reutilización
+  de Payment existente, cálculo de signature, validación de checksum,
+  idempotencia de webhook, los 3 escenarios de pago (aprobado, declinado,
+  aprobado-sin-stock con void exitoso/fallido).
+Comando: npm test.
+
+## Testing automatizado — Fase 1 COMPLETADA (67/67 tests)
+Cobertura completa de lógica de negocio (services) en todos los módulos,
+mockeando repositories, sin dependencia de base de datos real:
+- orders (7) + payments (11)
+- auth (10)
+- products (7) + variants (9)
+- categories (8)
+- cart (8)
+- addresses (7)
+
+Comando: npm test (una vez) / npm run test:watch (modo desarrollo).
+
+PENDIENTE (fase 2, no bloqueante): tests de integración contra DB de test
+real — validarían la capa de Repository/Prisma en sí (queries, constraints,
+transacciones), que hoy solo están cubiertas por el testing manual ya
+realizado. No es urgente: los services (la lógica de negocio más
+propensa a bugs sutiles) ya están protegidos.
 
 ## Estado actual del proyecto (actualizado)
 - [x] Schema de Prisma completo y migrado

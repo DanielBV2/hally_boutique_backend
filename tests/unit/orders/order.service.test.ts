@@ -51,6 +51,14 @@ function makeOrder(overrides: Partial<OrderWithItems> = {}): OrderWithItems {
     total: 100000,
     currency: "COP",
     shippingAddressId: "addr-1",
+    shippingFullName: "Juan Pérez",
+    shippingPhone: "3001234567",
+    shippingLine1: "Calle 123",
+    shippingLine2: null,
+    shippingCity: "Medellín",
+    shippingState: "Antioquia",
+    shippingCountry: "CO",
+    shippingPostalCode: "050001",
     idempotencyKey: "idem-key-1",
     createdAt: new Date("2026-01-01"),
     updatedAt: new Date("2026-01-01"),
@@ -141,7 +149,20 @@ describe("OrderServiceImpl", () => {
 
     it("caso feliz: crea orden con snapshot correcto y totales válidos", async () => {
       vi.mocked(orderRepo.findByIdempotencyKey).mockResolvedValue(null);
-      vi.mocked(addressRepo.findById).mockResolvedValue({ id: "addr-1", userId } as any);
+
+      const mockAddress = {
+        id: "addr-1",
+        userId,
+        fullName: "Juan Pérez",
+        phone: "3001234567",
+        line1: "Calle 123",
+        line2: null,
+        city: "Medellín",
+        state: "Antioquia",
+        country: "CO",
+        postalCode: "050001",
+      };
+      vi.mocked(addressRepo.findById).mockResolvedValue(mockAddress as any);
 
       const item1 = makeCartItem({
         variantId: "v1",
@@ -198,7 +219,23 @@ describe("OrderServiceImpl", () => {
         lineTotal: 85000,
       });
 
+      expect(result.shippingFullName).toBe("Juan Pérez");
+      expect(result.shippingPhone).toBe("3001234567");
+      expect(result.shippingLine1).toBe("Calle 123");
+      expect(result.shippingLine2).toBeNull();
+      expect(result.shippingCity).toBe("Medellín");
+      expect(result.shippingState).toBe("Antioquia");
+      expect(result.shippingCountry).toBe("CO");
+      expect(result.shippingPostalCode).toBe("050001");
+
       expect(orderRepo.createWithItems).toHaveBeenCalledOnce();
+      const createCall = vi.mocked(orderRepo.createWithItems).mock.calls[0][0];
+      expect(createCall.shippingFullName).toBe("Juan Pérez");
+      expect(createCall.shippingPhone).toBe("3001234567");
+      expect(createCall.shippingLine1).toBe("Calle 123");
+      expect(createCall.shippingCity).toBe("Medellín");
+      expect(createCall.shippingState).toBe("Antioquia");
+      expect(createCall.shippingCountry).toBe("CO");
     });
   });
 

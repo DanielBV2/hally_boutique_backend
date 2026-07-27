@@ -62,6 +62,14 @@ export class PrismaOrderRepository implements OrderRepository {
           shippingAmount: 0,
           total: data.total,
           shippingAddressId: data.shippingAddressId,
+          shippingFullName: data.shippingFullName,
+          shippingPhone: data.shippingPhone,
+          shippingLine1: data.shippingLine1,
+          shippingLine2: data.shippingLine2,
+          shippingCity: data.shippingCity,
+          shippingState: data.shippingState,
+          shippingCountry: data.shippingCountry,
+          shippingPostalCode: data.shippingPostalCode,
           idempotencyKey: data.idempotencyKey,
           items: {
             create: data.items.map((item) => ({
