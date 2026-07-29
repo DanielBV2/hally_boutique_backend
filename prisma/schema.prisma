@@ -126,6 +126,7 @@ model Product {
   description   String
   basePrice     Decimal     @db.Decimal(10, 2)  // precio antes de impuestos
   currency      String      @default("COP")     // preparado para multi-moneda futuro
+  weightGrams   Int         @default(300)
   isActive      Boolean     @default(true)
 
   category      Category    @relation(fields: [categoryId], references: [id])
@@ -227,6 +228,8 @@ model Order {
   subtotal          Decimal       @db.Decimal(10, 2)
   taxAmount         Decimal       @default(0) @db.Decimal(10, 2) // IVA u otros impuestos
   shippingAmount    Decimal       @default(0) @db.Decimal(10, 2)
+  shippingCarrier   String?
+  shippingService   String?
   total             Decimal       @db.Decimal(10, 2)
   currency          String        @default("COP")
 
@@ -274,6 +277,7 @@ model OrderItem {
   color         String
   unitPrice     Decimal   @db.Decimal(10, 2)
   quantity      Int
+  weightGrams   Int
 
   @@map("order_items")
 }

@@ -46,6 +46,7 @@ function mockOrderRepo(): OrderRepository {
     findByIdWithItems: vi.fn(),
     createWithItems: vi.fn(),
     updateStatus: vi.fn(),
+    updateShippingAndTotal: vi.fn(),
   };
 }
 
@@ -92,6 +93,8 @@ function makeOrder(overrides: Partial<OrderWithItems> = {}): OrderWithItems {
     shippingState: "Antioquia",
     shippingCountry: "CO",
     shippingPostalCode: "050001",
+    shippingCarrier: null,
+    shippingService: null,
     idempotencyKey: "idem-key-1",
     createdAt: new Date("2026-01-01"),
     updatedAt: new Date("2026-01-01"),
@@ -154,8 +157,16 @@ describe("PaymentServiceImpl", () => {
       await expect(service.createCheckout(userId, orderId)).rejects.toThrow(ConflictError);
     });
 
+    it("lanza ConflictError si shippingCarrier es null", async () => {
+      vi.mocked(orderRepo.findByIdWithItems).mockResolvedValue(
+        makeOrder({ shippingCarrier: null, shippingService: null }),
+      );
+
+      await expect(service.createCheckout(userId, orderId)).rejects.toThrow(ConflictError);
+    });
+
     it("reutiliza payment existente sin llamar create()", async () => {
-      const order = makeOrder();
+      const order = makeOrder({ shippingCarrier: "coordinadora", shippingService: "express" });
       vi.mocked(orderRepo.findByIdWithItems).mockResolvedValue(order);
       vi.mocked(paymentRepo.findByOrderId).mockResolvedValue({ id: "pay-1", orderId } as any);
       vi.mocked(generateIntegritySignature).mockReturnValue("sig-123");
@@ -167,7 +178,7 @@ describe("PaymentServiceImpl", () => {
     });
 
     it("caso feliz: amountInCents y signature correctos", async () => {
-      const order = makeOrder({ total: 150000 });
+      const order = makeOrder({ total: 150000, shippingCarrier: "coordinadora", shippingService: "express" });
       vi.mocked(orderRepo.findByIdWithItems).mockResolvedValue(order);
       vi.mocked(paymentRepo.findByOrderId).mockResolvedValue(null);
       vi.mocked(paymentRepo.create).mockResolvedValue({ id: "pay-1" } as any);

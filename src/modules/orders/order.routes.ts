@@ -4,7 +4,9 @@ import { authMiddleware } from "../../middlewares/authMiddleware.js";
 import {
   createOrderSchema,
   listOrdersQuerySchema,
+  idParamsSchema,
   orderIdParamsSchema,
+  shippingSelectionSchema,
 } from "./order.schema.js";
 import { OrderController } from "./order.controller.js";
 import { PrismaOrderRepository } from "./order.repository.js";
@@ -51,7 +53,7 @@ router.get(
 
 router.get(
   "/:id",
-  validateSchemaMiddleware(orderIdParamsSchema, "params"),
+  validateSchemaMiddleware(idParamsSchema, "params"),
   orderController.getById,
 );
 
@@ -65,6 +67,19 @@ router.post(
   "/:orderId/checkout",
   validateSchemaMiddleware(createCheckoutParamsSchema, "params"),
   paymentController.checkout,
+);
+
+router.post(
+  "/:orderId/shipping-quote",
+  validateSchemaMiddleware(orderIdParamsSchema, "params"),
+  orderController.shippingQuote,
+);
+
+router.patch(
+  "/:orderId/shipping-selection",
+  validateSchemaMiddleware(orderIdParamsSchema, "params"),
+  validateSchemaMiddleware(shippingSelectionSchema, "body"),
+  orderController.selectShipping,
 );
 
 export { router as orderRoutes };

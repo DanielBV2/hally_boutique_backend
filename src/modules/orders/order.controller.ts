@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import type { OrderService } from "./order.service.js";
 import type { ApiResponse } from "../../shared/types/api-response.js";
-import type { CreateOrderInput, ListOrdersQuery } from "./order.schema.js";
+import type { CreateOrderInput, ListOrdersQuery, ShippingSelectionInput } from "./order.schema.js";
 
 export class OrderController {
   constructor(private readonly service: OrderService) {}
@@ -37,5 +37,28 @@ export class OrderController {
       data: order,
     };
     res.status(201).json(body);
+  };
+
+  shippingQuote = async (req: Request, res: Response) => {
+    const { orderId } = req.params as { orderId: string };
+    const rates = await this.service.getShippingQuote(req.user!.id, orderId);
+
+    const body: ApiResponse<typeof rates> = {
+      success: true,
+      data: rates,
+    };
+    res.status(200).json(body);
+  };
+
+  selectShipping = async (req: Request, res: Response) => {
+    const { orderId } = req.params as { orderId: string };
+    const data = req.body as ShippingSelectionInput;
+    const order = await this.service.selectShipping(req.user!.id, orderId, data);
+
+    const body: ApiResponse<typeof order> = {
+      success: true,
+      data: order,
+    };
+    res.status(200).json(body);
   };
 }

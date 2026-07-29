@@ -14,6 +14,17 @@ export const listOrdersQuerySchema = z.object({
 
 export type ListOrdersQuery = z.infer<typeof listOrdersQuerySchema>;
 
-export const orderIdParamsSchema = z.object({
+export const idParamsSchema = z.object({
   id: z.string().uuid(),
 });
+
+export const orderIdParamsSchema = z.object({
+  orderId: z.string().uuid(),
+});
+
+export const shippingSelectionSchema = z.object({
+  carrier: z.string().min(1),
+  service: z.string().min(1),
+});
+
+export type ShippingSelectionInput = z.infer<typeof shippingSelectionSchema>;

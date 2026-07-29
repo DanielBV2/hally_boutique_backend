@@ -2,13 +2,16 @@ import type { OrderRepository } from "./order.repository.js";
 import type { AddressRepository } from "../addresses/address.repository.js";
 import type { CartRepository } from "../cart/cart.repository.js";
 import type { OrderListItemDTO, OrderDetailDTO, OrderItemDTO } from "./order.dto.js";
-import type { CreateOrderInput, ListOrdersQuery } from "./order.schema.js";
+import type { CreateOrderInput, ListOrdersQuery, ShippingSelectionInput } from "./order.schema.js";
 import type { OrderWithItems, CreateOrderItemData } from "./order.types.js";
 import {
   NotFoundError,
   ConflictError,
   ValidationError,
 } from "../../shared/errors/app-error.js";
+import { getAllShippingRates, type ShippingRateOption } from "../../shared/utils/shippingClient.js";
+import { getStaticShippingEstimate } from "../../shared/utils/staticShippingRates.js";
+import { env } from "../../config/env.js";
 
 export interface OrderService {
   listMyOrders(
@@ -17,6 +20,8 @@ export interface OrderService {
   ): Promise<{ items: OrderListItemDTO[]; total: number }>;
   getMyOrderById(userId: string, orderId: string): Promise<OrderDetailDTO>;
   createOrderFromCart(userId: string, data: CreateOrderInput): Promise<OrderDetailDTO>;
+  getShippingQuote(userId: string, orderId: string): Promise<ShippingRateOption[]>;
+  selectShipping(userId: string, orderId: string, data: ShippingSelectionInput): Promise<OrderDetailDTO>;
 }
 
 function toItemDTO(item: OrderWithItems["items"][number]): OrderItemDTO {
@@ -52,6 +57,8 @@ function toDetailDTO(order: OrderWithItems): OrderDetailDTO {
     shippingState: order.shippingState,
     shippingCountry: order.shippingCountry,
     shippingPostalCode: order.shippingPostalCode,
+    shippingCarrier: order.shippingCarrier ?? null,
+    shippingService: order.shippingService ?? null,
     createdAt: order.createdAt,
   };
 }
@@ -135,6 +142,7 @@ export class OrderServiceImpl implements OrderService {
         color: variant.color,
         unitPrice,
         quantity: item.quantity,
+        weightGrams: product.weightGrams,
       });
     }
 
@@ -142,13 +150,14 @@ export class OrderServiceImpl implements OrderService {
       (sum, item) => sum + item.unitPrice * item.quantity,
       0,
     );
-    const taxAmount = 0;
+    const taxAmount = Math.round(subtotal * env.TAX_RATE);
     const shippingAmount = 0;
     const total = subtotal + taxAmount + shippingAmount;
 
     const order = await this.orderRepository.createWithItems({
       userId,
       subtotal,
+      taxAmount,
       total,
       shippingAddressId: data.addressId,
       shippingFullName: address.fullName,
@@ -164,5 +173,135 @@ export class OrderServiceImpl implements OrderService {
     });
 
     return toDetailDTO(order);
+  }
+
+  async getShippingQuote(userId: string, orderId: string): Promise<ShippingRateOption[]> {
+    const order = await this.orderRepository.findByIdWithItems(orderId);
+    if (!order || order.userId !== userId) {
+      throw new NotFoundError("Order");
+    }
+    if (order.status !== "PENDING") {
+      throw new ConflictError("Solo se pueden cotizar envíos para órdenes en estado PENDING");
+    }
+
+    const destination = {
+      street: order.shippingLine1,
+      city: order.shippingCity,
+      state: order.shippingState,
+      country: order.shippingCountry,
+      postalCode: order.shippingPostalCode ?? "",
+    };
+
+    const origin = {
+      name: env.SHIPPING_ORIGIN_NAME,
+      phone: env.SHIPPING_ORIGIN_PHONE,
+      street: env.SHIPPING_ORIGIN_STREET,
+      city: env.SHIPPING_ORIGIN_CITY,
+      state: env.SHIPPING_ORIGIN_STATE,
+      country: env.SHIPPING_ORIGIN_COUNTRY,
+      postalCode: env.SHIPPING_ORIGIN_POSTALCODE,
+    };
+
+    const totalWeightGrams = order.items.reduce(
+      (sum, item) => sum + item.weightGrams * item.quantity,
+      0,
+    );
+    const totalKg = totalWeightGrams / 1000;
+
+    const packages = [
+      {
+        weight: totalKg,
+        weightUnit: "KG",
+        lengthUnit: "CM",
+        dimensions: { length: 30, width: 25, height: 10 },
+        type: "box",
+        amount: 1,
+        declaredValue: Number(order.subtotal),
+      },
+    ];
+
+    const rates = await getAllShippingRates(origin, destination, packages);
+
+    if (rates.length === 0) {
+      return [getStaticShippingEstimate(order.shippingState, totalWeightGrams)];
+    }
+
+    return rates;
+  }
+
+  async selectShipping(
+    userId: string,
+    orderId: string,
+    data: ShippingSelectionInput,
+  ): Promise<OrderDetailDTO> {
+    const order = await this.orderRepository.findByIdWithItems(orderId);
+    if (!order || order.userId !== userId) {
+      throw new NotFoundError("Order");
+    }
+    if (order.status !== "PENDING") {
+      throw new ConflictError("Solo se pueden seleccionar envíos para órdenes en estado PENDING");
+    }
+
+    const destination = {
+      street: order.shippingLine1,
+      city: order.shippingCity,
+      state: order.shippingState,
+      country: order.shippingCountry,
+      postalCode: order.shippingPostalCode ?? "",
+    };
+
+    const origin = {
+      name: env.SHIPPING_ORIGIN_NAME,
+      phone: env.SHIPPING_ORIGIN_PHONE,
+      street: env.SHIPPING_ORIGIN_STREET,
+      city: env.SHIPPING_ORIGIN_CITY,
+      state: env.SHIPPING_ORIGIN_STATE,
+      country: env.SHIPPING_ORIGIN_COUNTRY,
+      postalCode: env.SHIPPING_ORIGIN_POSTALCODE,
+    };
+
+    const totalWeightGrams = order.items.reduce(
+      (sum, item) => sum + item.weightGrams * item.quantity,
+      0,
+    );
+    const totalKg = totalWeightGrams / 1000;
+
+    const packages = [
+      {
+        weight: totalKg,
+        weightUnit: "KG",
+        lengthUnit: "CM",
+        dimensions: { length: 30, width: 25, height: 10 },
+        type: "box",
+        amount: 1,
+        declaredValue: Number(order.subtotal),
+      },
+    ];
+
+    const rates = await getAllShippingRates(origin, destination, packages);
+    const match = rates.find(
+      (r) => r.carrier === data.carrier && r.service === data.service,
+    );
+
+    if (!match) {
+      throw new ConflictError(
+        "La opción de envío seleccionada ya no está disponible, por favor cotiza de nuevo",
+      );
+    }
+
+    const subtotal = Number(order.subtotal);
+    const shippingAmount =
+      subtotal >= env.FREE_SHIPPING_THRESHOLD ? 0 : match.totalPrice;
+    const taxAmount = Number(order.taxAmount);
+    const total = subtotal + taxAmount + shippingAmount;
+
+    const updated = await this.orderRepository.updateShippingAndTotal(orderId, {
+      shippingCarrier: data.carrier,
+      shippingService: data.service,
+      shippingAmount,
+      total,
+    });
+
+    return toDetailDTO(updated);
   }
 }

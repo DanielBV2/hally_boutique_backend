@@ -12,11 +12,13 @@ export interface CreateOrderItemData {
   color: string;
   unitPrice: number;
   quantity: number;
+  weightGrams: number;
 }
 
 export interface CreateOrderData {
   userId: string;
   subtotal: number;
+  taxAmount: number;
   total: number;
   shippingAddressId: string;
   idempotencyKey: string;

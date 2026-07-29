@@ -42,6 +42,10 @@ export class PaymentServiceImpl implements PaymentService {
       throw new ConflictError("La orden no está en estado PENDING");
     }
 
+    if (!order.shippingCarrier || !order.shippingService) {
+      throw new ConflictError("Debes seleccionar un método de envío antes de pagar");
+    }
+
     const existingPayment = await this.paymentRepository.findByOrderId(orderId);
 
     const reference = order.idempotencyKey;

@@ -11,6 +11,15 @@ export interface OrderRepository {
   findByIdWithItems(id: string): Promise<OrderWithItems | null>;
   createWithItems(data: CreateOrderData): Promise<OrderWithItems>;
   updateStatus(orderId: string, status: OrderStatus, tx?: Prisma.TransactionClient): Promise<void>;
+  updateShippingAndTotal(
+    orderId: string,
+    data: {
+      shippingCarrier: string;
+      shippingService: string;
+      shippingAmount: number;
+      total: number;
+    },
+  ): Promise<OrderWithItems>;
 }
 
 const includeItems = {
@@ -58,7 +67,7 @@ export class PrismaOrderRepository implements OrderRepository {
         data: {
           userId: data.userId,
           subtotal: data.subtotal,
-          taxAmount: 0,
+          taxAmount: data.taxAmount,
           shippingAmount: 0,
           total: data.total,
           shippingAddressId: data.shippingAddressId,
@@ -79,6 +88,7 @@ export class PrismaOrderRepository implements OrderRepository {
               color: item.color,
               unitPrice: item.unitPrice,
               quantity: item.quantity,
+              weightGrams: item.weightGrams,
             })),
           },
         },
@@ -92,6 +102,27 @@ export class PrismaOrderRepository implements OrderRepository {
     await client.order.update({
       where: { id: orderId },
       data: { status },
+    });
+  }
+
+  async updateShippingAndTotal(
+    orderId: string,
+    data: {
+      shippingCarrier: string;
+      shippingService: string;
+      shippingAmount: number;
+      total: number;
+    },
+  ) {
+    return this.prisma.order.update({
+      where: { id: orderId },
+      data: {
+        shippingCarrier: data.shippingCarrier,
+        shippingService: data.shippingService,
+        shippingAmount: data.shippingAmount,
+        total: data.total,
+      },
+      include: includeItems,
     });
   }
 }

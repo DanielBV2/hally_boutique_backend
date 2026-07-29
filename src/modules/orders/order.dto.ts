@@ -35,5 +35,7 @@ export interface OrderDetailDTO {
   shippingState: string;
   shippingCountry: string;
   shippingPostalCode: string | null;
+  shippingCarrier: string | null;
+  shippingService: string | null;
   createdAt: Date;
 }

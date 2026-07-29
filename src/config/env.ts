@@ -20,12 +20,24 @@ const envSchema = z.object({
   WOMPI_EVENTS_SECRET: z.string().min(1),
   WOMPI_REDIRECT_URL: z.string().url(),
   WOMPI_API_BASE_URL: z.string().url().default("https://sandbox.wompi.co/v1"),
+  ENVIA_TOKEN: z.string().min(1),
+  ENVIA_BASE_URL: z.string().url().default("https://api-test.envia.com"),
+  TAX_RATE: z.coerce.number().min(0).max(1).default(0.19),
+  FREE_SHIPPING_THRESHOLD: z.coerce.number().positive().default(150000),
+  SHIPPING_ORIGIN_NAME: z.string().min(1),
+  SHIPPING_ORIGIN_PHONE: z.string().min(1),
+  SHIPPING_ORIGIN_STREET: z.string().min(1),
+  SHIPPING_ORIGIN_CITY: z.string().min(1),
+  SHIPPING_ORIGIN_STATE: z.string().min(1),
+  SHIPPING_ORIGIN_COUNTRY: z.string().default("CO"),
+  SHIPPING_ORIGIN_POSTALCODE: z.string().min(1),
+  SHIPPING_CARRIERS: z.string().default("coordinadora,serviEntrega,interRapidisimo,tcc"),
 });
 
 const parsed = envSchema.safeParse(process.env);
 
 if (!parsed.success) {
-  console.error("❌ Invalid environment variables:");
+  console.error("Invalid environment variables:");
   console.error(parsed.error.flatten().fieldErrors);
   process.exit(1);
 }
