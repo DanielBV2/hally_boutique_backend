@@ -26,3 +26,11 @@ export const refreshTokenSchema = z.object({
 });
 
 export type RefreshTokenInput = z.infer<typeof refreshTokenSchema>;
+
+export const adminUsersQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().positive().max(50).default(20),
+  role: z.enum(["CUSTOMER", "ADMIN"]).optional(),
+});
+
+export type AdminUsersQuery = z.infer<typeof adminUsersQuerySchema>;

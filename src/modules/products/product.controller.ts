@@ -3,6 +3,7 @@ import type { ProductService } from "./product.service.js";
 import type { ApiResponse } from "../../shared/types/api-response.js";
 import type {
   ListProductsQuery,
+  AdminProductsQuery,
   CreateProductInput,
   UpdateProductInput,
   AddProductImageInput,
@@ -26,6 +27,24 @@ export class ProductController {
     );
 
     const body: ApiResponse<typeof items> = { success: true, data: items };
+    res.status(200).json(body);
+  };
+
+  listAdmin = async (req: Request, res: Response) => {
+    const query = req.query as unknown as AdminProductsQuery;
+    const filters: { isActive?: boolean; categoryId?: string } = {};
+    if (query.isActive !== undefined) filters.isActive = query.isActive;
+    if (query.categoryId !== undefined) filters.categoryId = query.categoryId;
+
+    const result = await this.service.listProductsAdmin(filters, {
+      page: query.page,
+      limit: query.limit,
+    });
+
+    const body: ApiResponse<typeof result.items> = {
+      success: true,
+      data: result.items,
+    };
     res.status(200).json(body);
   };
 

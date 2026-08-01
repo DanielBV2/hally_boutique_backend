@@ -1,11 +1,12 @@
 import bcrypt from "bcrypt";
 import jsonwebtoken from "jsonwebtoken";
-import type { AuthRepository } from "./auth.repository.js";
+import type { AuthRepository, AuthFilters, AuthPagination } from "./auth.repository.js";
 import type { RefreshTokenRepository } from "./refresh-token.repository.js";
 import type {
   AuthResponseDTO,
   RefreshResponseDTO,
   UserProfileDTO,
+  AdminUserListItemDTO,
 } from "./auth.dto.js";
 import type { RegisterInput, LoginInput } from "./auth.schema.js";
 import {
@@ -30,6 +31,10 @@ export interface AuthService {
   refresh(refreshTokenPlain: string): Promise<RefreshResponseDTO>;
   logout(refreshTokenPlain: string): Promise<void>;
   getProfile(userId: string): Promise<UserProfileDTO>;
+  listUsersAdmin(
+    filters: AuthFilters,
+    pagination: AuthPagination,
+  ): Promise<{ items: AdminUserListItemDTO[]; total: number }>;
 }
 
 function toUserProfileDTO(user: {
@@ -47,6 +52,24 @@ function toUserProfileDTO(user: {
     firstName: user.firstName,
     lastName: user.lastName,
     phone: user.phone,
+    role: user.role,
+    createdAt: user.createdAt,
+  };
+}
+
+function toAdminUserListItemDTO(user: {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: Role;
+  createdAt: Date;
+}): AdminUserListItemDTO {
+  return {
+    id: user.id,
+    email: user.email,
+    firstName: user.firstName,
+    lastName: user.lastName,
     role: user.role,
     createdAt: user.createdAt,
   };
@@ -203,5 +226,17 @@ export class AuthServiceImpl implements AuthService {
     }
 
     return toUserProfileDTO(user);
+  }
+
+  async listUsersAdmin(
+    filters: AuthFilters,
+    pagination: AuthPagination,
+  ): Promise<{ items: AdminUserListItemDTO[]; total: number }> {
+    const { users, total } = await this.repository.findAllAdmin(filters, pagination);
+
+    return {
+      items: users.map(toAdminUserListItemDTO),
+      total,
+    };
   }
 }

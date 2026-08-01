@@ -6,6 +6,7 @@ import {
   createProductSchema,
   updateProductSchema,
   listProductsQuerySchema,
+  adminProductsQuerySchema,
   addProductImageSchema,
   idParamsSchema,
   slugParamsSchema,
@@ -39,6 +40,14 @@ router.get(
   "/",
   validateSchemaMiddleware(listProductsQuerySchema, "query"),
   productController.list,
+);
+
+router.get(
+  "/admin/all",
+  authMiddleware,
+  roleMiddleware("ADMIN"),
+  validateSchemaMiddleware(adminProductsQuerySchema, "query"),
+  productController.listAdmin,
 );
 
 router.get(

@@ -1,5 +1,5 @@
 import type { Category } from "@prisma/client";
-import type { CategoryRepository } from "./category.repository.js";
+import type { CategoryRepository, Pagination } from "./category.repository.js";
 import type { CategoryDTO } from "./category.dto.js";
 import {
   NotFoundError,
@@ -21,6 +21,10 @@ interface UpdateCategoryInput {
 
 export interface CategoryService {
   listActive(): Promise<CategoryDTO[]>;
+  listCategoriesAdmin(
+    filters: { isActive?: boolean },
+    pagination: Pagination,
+  ): Promise<{ items: CategoryDTO[]; total: number }>;
   getBySlug(slug: string): Promise<CategoryDTO>;
   getById(id: string): Promise<CategoryDTO>;
   createCategory(data: CreateCategoryInput): Promise<CategoryDTO>;
@@ -43,6 +47,21 @@ export class CategoryServiceImpl implements CategoryService {
   async listActive() {
     const categories = await this.repository.findAllActive();
     return categories.map(toDTO);
+  }
+
+  async listCategoriesAdmin(
+    filters: { isActive?: boolean },
+    pagination: Pagination,
+  ) {
+    const { categories, total } = await this.repository.findAllAdmin(
+      filters,
+      pagination,
+    );
+
+    return {
+      items: categories.map(toDTO),
+      total,
+    };
   }
 
   async getBySlug(slug: string) {

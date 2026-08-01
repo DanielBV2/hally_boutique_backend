@@ -53,6 +53,10 @@ export interface ProductRepository {
     pagination: Pagination,
     sort: SortOptions,
   ): Promise<{ products: ProductWithListRelations[]; total: number }>;
+  findManyAdmin(
+    filters: { isActive?: boolean; categoryId?: string },
+    pagination: Pagination,
+  ): Promise<{ products: ProductWithListRelations[]; total: number }>;
   findBySlug(slug: string): Promise<ProductWithRelations | null>;
   findById(id: string): Promise<ProductWithRelations | null>;
   slugExists(slug: string, excludeId?: string): Promise<boolean>;
@@ -98,6 +102,36 @@ export class PrismaProductRepository implements ProductRepository {
         where,
         include: includeList,
         orderBy: { [sort.sortBy]: sort.sortOrder },
+        skip,
+        take: limit,
+      }),
+      this.prisma.product.count({ where }),
+    ]);
+
+    return { products, total };
+  }
+
+  async findManyAdmin(
+    filters: { isActive?: boolean; categoryId?: string },
+    pagination: Pagination,
+  ) {
+    const where: Prisma.ProductWhereInput = {};
+
+    if (filters.isActive !== undefined) {
+      where.isActive = filters.isActive;
+    }
+    if (filters.categoryId) {
+      where.categoryId = filters.categoryId;
+    }
+
+    const { page, limit } = pagination;
+    const skip = (page - 1) * limit;
+
+    const [products, total] = await Promise.all([
+      this.prisma.product.findMany({
+        where,
+        include: includeList,
+        orderBy: { createdAt: "desc" },
         skip,
         take: limit,
       }),

@@ -1,10 +1,12 @@
 import { Router } from "express";
 import { validateSchemaMiddleware } from "../../middlewares/validateSchemaMiddleware.js";
 import { authMiddleware } from "../../middlewares/authMiddleware.js";
+import { roleMiddleware } from "../../middlewares/roleMiddleware.js";
 import {
   registerSchema,
   loginSchema,
   refreshTokenSchema,
+  adminUsersQuerySchema,
 } from "./auth.schema.js";
 import { AuthController } from "./auth.controller.js";
 import { PrismaAuthRepository } from "./auth.repository.js";
@@ -41,6 +43,14 @@ router.post(
   "/logout",
   validateSchemaMiddleware(refreshTokenSchema),
   authController.logout,
+);
+
+router.get(
+  "/admin/all",
+  authMiddleware,
+  roleMiddleware("ADMIN"),
+  validateSchemaMiddleware(adminUsersQuerySchema, "query"),
+  authController.listUsersAdmin,
 );
 
 router.get("/me", authMiddleware, authController.getProfile);

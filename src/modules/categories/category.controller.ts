@@ -4,6 +4,7 @@ import type { ApiResponse } from "../../shared/types/api-response.js";
 import type {
   CreateCategoryInput,
   UpdateCategoryInput,
+  AdminCategoriesQuery,
 } from "./category.schema.js";
 
 export class CategoryController {
@@ -15,6 +16,23 @@ export class CategoryController {
     const body: ApiResponse<typeof categories> = {
       success: true,
       data: categories,
+    };
+    res.status(200).json(body);
+  };
+
+  listAdmin = async (req: Request, res: Response) => {
+    const query = req.query as unknown as AdminCategoriesQuery;
+    const filters: { isActive?: boolean } = {};
+    if (query.isActive !== undefined) filters.isActive = query.isActive;
+
+    const result = await this.service.listCategoriesAdmin(filters, {
+      page: query.page,
+      limit: query.limit,
+    });
+
+    const body: ApiResponse<typeof result.items> = {
+      success: true,
+      data: result.items,
     };
     res.status(200).json(body);
   };

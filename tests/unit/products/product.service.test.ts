@@ -8,6 +8,7 @@ import { NotFoundError } from "../../../src/shared/errors/app-error.js";
 function mockProductRepo(): ProductRepository {
   return {
     findMany: vi.fn(),
+    findManyAdmin: vi.fn(),
     findBySlug: vi.fn(),
     findById: vi.fn(),
     slugExists: vi.fn(),
@@ -115,6 +116,46 @@ describe("ProductServiceImpl", () => {
       expect(result.items).toHaveLength(1);
       expect(result.total).toBe(1);
       expect(result.page).toBe(1);
+    });
+  });
+
+  describe("listProductsAdmin", () => {
+    const pagination = { page: 1, limit: 20 };
+
+    it("llama a repository.findManyAdmin con isActive undefined cuando no llega filtro", async () => {
+      vi.mocked(productRepo.findManyAdmin).mockResolvedValue({ products: [makeListItem()], total: 1 });
+
+      const result = await service.listProductsAdmin({ isActive: undefined, categoryId: undefined }, pagination);
+
+      expect(productRepo.findManyAdmin).toHaveBeenCalledWith(
+        { isActive: undefined, categoryId: undefined },
+        pagination,
+      );
+      expect(productRepo.findManyAdmin).toHaveBeenCalledOnce();
+      expect(result.items).toHaveLength(1);
+      expect(result.total).toBe(1);
+    });
+
+    it("pasa isActive=false correctamente al repository", async () => {
+      vi.mocked(productRepo.findManyAdmin).mockResolvedValue({ products: [], total: 0 });
+
+      await service.listProductsAdmin({ isActive: false, categoryId: undefined }, pagination);
+
+      expect(productRepo.findManyAdmin).toHaveBeenCalledWith(
+        { isActive: false, categoryId: undefined },
+        pagination,
+      );
+    });
+
+    it("pasa isActive=true y categoryId correctamente al repository", async () => {
+      vi.mocked(productRepo.findManyAdmin).mockResolvedValue({ products: [], total: 0 });
+
+      await service.listProductsAdmin({ isActive: true, categoryId: "cat-1" }, pagination);
+
+      expect(productRepo.findManyAdmin).toHaveBeenCalledWith(
+        { isActive: true, categoryId: "cat-1" },
+        pagination,
+      );
     });
   });
 

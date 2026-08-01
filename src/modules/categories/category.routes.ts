@@ -7,6 +7,7 @@ import {
   updateCategorySchema,
   categoryIdParamsSchema,
   categorySlugParamsSchema,
+  adminCategoriesQuerySchema,
 } from "./category.schema.js";
 import { CategoryController } from "./category.controller.js";
 import { PrismaCategoryRepository } from "./category.repository.js";
@@ -20,6 +21,14 @@ const categoryController = new CategoryController(categoryService);
 const router = Router();
 
 router.get("/", categoryController.list);
+
+router.get(
+  "/admin/all",
+  authMiddleware,
+  roleMiddleware("ADMIN"),
+  validateSchemaMiddleware(adminCategoriesQuerySchema, "query"),
+  categoryController.listAdmin,
+);
 
 router.get(
   "/:slug",

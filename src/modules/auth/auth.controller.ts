@@ -4,6 +4,7 @@ import type {
   RegisterInput,
   LoginInput,
   RefreshTokenInput,
+  AdminUsersQuery,
 } from "./auth.schema.js";
 import type { ApiResponse } from "../../shared/types/api-response.js";
 
@@ -47,6 +48,21 @@ export class AuthController {
     await this.service.logout(refreshToken);
 
     const body: ApiResponse<null> = { success: true, data: null };
+    res.status(200).json(body);
+  };
+
+  listUsersAdmin = async (req: Request, res: Response) => {
+    const query = req.query as unknown as AdminUsersQuery;
+    const filters = query.role ? { role: query.role } : {};
+    const result = await this.service.listUsersAdmin(filters, {
+      page: query.page,
+      limit: query.limit,
+    });
+
+    const body: ApiResponse<typeof result.items> = {
+      success: true,
+      data: result.items,
+    };
     res.status(200).json(body);
   };
 }

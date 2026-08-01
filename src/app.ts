@@ -11,6 +11,7 @@ import { cartRoutes } from "./modules/cart/cart.routes.js";
 import { addressRoutes } from "./modules/addresses/address.routes.js";
 import { orderRoutes } from "./modules/orders/order.routes.js";
 import { paymentRoutes } from "./modules/payments/payment.routes.js";
+import { metricsRoutes } from "./modules/metrics/metrics.routes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -35,6 +36,7 @@ app.use("/api/cart", cartRoutes);
 app.use("/api/addresses", addressRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/payments", paymentRoutes);
+app.use("/api/metrics", metricsRoutes);
 
 app.use(errorHandler);
 

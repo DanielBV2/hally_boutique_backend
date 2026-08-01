@@ -32,6 +32,7 @@ function mockAuthRepo(): AuthRepository {
     findByEmail: vi.fn(),
     findById: vi.fn(),
     create: vi.fn(),
+    findAllAdmin: vi.fn(),
   };
 }
 
@@ -349,6 +350,65 @@ describe("AuthServiceImpl", () => {
       vi.mocked(authRepo.findById).mockResolvedValue(null);
 
       await expect(service.getProfile("nonexistent")).rejects.toThrow(NotFoundError);
+    });
+  });
+
+  describe("listUsersAdmin", () => {
+    it("pasa el filtro de role al repository junto con la paginación", async () => {
+      vi.mocked(authRepo.findAllAdmin).mockResolvedValue({ users: [], total: 0 });
+
+      await service.listUsersAdmin({ role: "ADMIN" }, { page: 2, limit: 50 });
+
+      expect(authRepo.findAllAdmin).toHaveBeenCalledWith(
+        { role: "ADMIN" },
+        { page: 2, limit: 50 },
+      );
+      expect(authRepo.findAllAdmin).toHaveBeenCalledOnce();
+    });
+
+    it("sin filtro de role pasa filters vacíos", async () => {
+      vi.mocked(authRepo.findAllAdmin).mockResolvedValue({ users: [], total: 0 });
+
+      await service.listUsersAdmin({}, { page: 1, limit: 20 });
+
+      expect(authRepo.findAllAdmin).toHaveBeenCalledWith(
+        {},
+        { page: 1, limit: 20 },
+      );
+    });
+
+    it("ningún AdminUserListItemDTO incluye passwordHash", async () => {
+      const users = [
+        makeUser({ id: "u1", role: "CUSTOMER" }),
+        makeUser({
+          id: "u2",
+          email: "admin@example.com",
+          role: "ADMIN",
+        }),
+      ];
+      vi.mocked(authRepo.findAllAdmin).mockResolvedValue({ users, total: 2 });
+
+      const result = await service.listUsersAdmin({}, { page: 1, limit: 20 });
+
+      expect(authRepo.findAllAdmin).toHaveBeenCalledOnce();
+      expect(result.total).toBe(2);
+      expect(result.items).toHaveLength(2);
+      for (const item of result.items) {
+        expect(item).not.toHaveProperty("passwordHash");
+      }
+      expect(result.items[0]).toMatchObject({
+        id: "u1",
+        email: "test@example.com",
+        role: "CUSTOMER",
+      });
+      expect(result.items[1]).toMatchObject({
+        id: "u2",
+        email: "admin@example.com",
+        firstName: "Juan",
+        lastName: "Pérez",
+        role: "ADMIN",
+        createdAt: new Date("2026-01-01"),
+      });
     });
   });
 });

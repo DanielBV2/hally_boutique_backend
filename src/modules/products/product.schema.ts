@@ -27,6 +27,15 @@ export const listProductsQuerySchema = z.object({
 
 export type ListProductsQuery = z.infer<typeof listProductsQuerySchema>;
 
+export const adminProductsQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().positive().max(50).default(20),
+  isActive: z.coerce.boolean().optional(),
+  categoryId: z.string().uuid().optional(),
+});
+
+export type AdminProductsQuery = z.infer<typeof adminProductsQuerySchema>;
+
 export const addProductImageSchema = z.object({
   url: z.string().url(),
   altText: z.string().max(200).optional(),

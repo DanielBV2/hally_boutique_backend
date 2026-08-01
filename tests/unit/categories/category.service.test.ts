@@ -8,6 +8,7 @@ import { NotFoundError, ConflictError } from "../../../src/shared/errors/app-err
 function mockCategoryRepo(): CategoryRepository {
   return {
     findAllActive: vi.fn(),
+    findAllAdmin: vi.fn(),
     findBySlug: vi.fn(),
     findById: vi.fn(),
     nameExists: vi.fn(),
@@ -93,6 +94,41 @@ describe("CategoryServiceImpl", () => {
       expect(result).toHaveLength(2);
       expect(result[0].name).toBe("Camisetas");
       expect(result[1].name).toBe("Pantalones");
+    });
+  });
+
+  describe("listCategoriesAdmin", () => {
+    const pagination = { page: 1, limit: 20 };
+
+    it("llama a repository.findAllAdmin con isActive undefined cuando no llega filtro", async () => {
+      vi.mocked(categoryRepo.findAllAdmin).mockResolvedValue({
+        categories: [makeCategory({ id: "cat-1" })],
+        total: 1,
+      });
+
+      const result = await service.listCategoriesAdmin({ isActive: undefined }, pagination);
+
+      expect(categoryRepo.findAllAdmin).toHaveBeenCalledWith({ isActive: undefined }, pagination);
+      expect(categoryRepo.findAllAdmin).toHaveBeenCalledOnce();
+      expect(result.items).toHaveLength(1);
+      expect(result.total).toBe(1);
+      expect(result.items[0].id).toBe("cat-1");
+    });
+
+    it("pasa isActive=false correctamente al repository", async () => {
+      vi.mocked(categoryRepo.findAllAdmin).mockResolvedValue({ categories: [], total: 0 });
+
+      await service.listCategoriesAdmin({ isActive: false }, pagination);
+
+      expect(categoryRepo.findAllAdmin).toHaveBeenCalledWith({ isActive: false }, pagination);
+    });
+
+    it("pasa isActive=true correctamente al repository", async () => {
+      vi.mocked(categoryRepo.findAllAdmin).mockResolvedValue({ categories: [], total: 0 });
+
+      await service.listCategoriesAdmin({ isActive: true }, pagination);
+
+      expect(categoryRepo.findAllAdmin).toHaveBeenCalledWith({ isActive: true }, pagination);
     });
   });
 

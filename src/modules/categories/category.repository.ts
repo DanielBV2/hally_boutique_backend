@@ -1,7 +1,16 @@
 import type { PrismaClient, Category } from "@prisma/client";
 
+export interface Pagination {
+  page: number;
+  limit: number;
+}
+
 export interface CategoryRepository {
   findAllActive(): Promise<Category[]>;
+  findAllAdmin(
+    filters: { isActive?: boolean },
+    pagination: Pagination,
+  ): Promise<{ categories: Category[]; total: number }>;
   findBySlug(slug: string): Promise<Category | null>;
   findById(id: string): Promise<Category | null>;
   nameExists(name: string, excludeId?: string): Promise<boolean>;
@@ -27,6 +36,30 @@ export class PrismaCategoryRepository implements CategoryRepository {
       where: { isActive: true },
       orderBy: { name: "asc" },
     });
+  }
+
+  async findAllAdmin(
+    filters: { isActive?: boolean },
+    pagination: Pagination,
+  ) {
+    const where = filters.isActive !== undefined
+      ? { isActive: filters.isActive }
+      : {};
+
+    const { page, limit } = pagination;
+    const skip = (page - 1) * limit;
+
+    const [categories, total] = await Promise.all([
+      this.prisma.category.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+      }),
+      this.prisma.category.count({ where }),
+    ]);
+
+    return { categories, total };
   }
 
   async findBySlug(slug: string) {

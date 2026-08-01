@@ -38,6 +38,10 @@ export interface ProductService {
     pagination: Pagination,
     sort: SortOptions,
   ): Promise<{ items: ProductListItemDTO[]; total: number; page: number }>;
+  listProductsAdmin(
+    filters: { isActive?: boolean; categoryId?: string },
+    pagination: Pagination,
+  ): Promise<{ items: ProductListItemDTO[]; total: number }>;
   getProductBySlug(slug: string): Promise<ProductDetailDTO>;
   createProduct(data: CreateProductInput): Promise<ProductDetailDTO>;
   updateProduct(id: string, data: UpdateProductInput): Promise<ProductDetailDTO>;
@@ -99,6 +103,21 @@ export class ProductServiceImpl implements ProductService {
       items: products.map(toListItemDTO),
       total,
       page: pagination.page,
+    };
+  }
+
+  async listProductsAdmin(
+    filters: { isActive?: boolean; categoryId?: string },
+    pagination: Pagination,
+  ) {
+    const { products, total } = await this.repository.findManyAdmin(
+      filters,
+      pagination,
+    );
+
+    return {
+      items: products.map(toListItemDTO),
+      total,
     };
   }
 

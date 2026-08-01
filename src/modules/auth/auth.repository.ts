@@ -1,4 +1,4 @@
-import type { PrismaClient, User } from "@prisma/client";
+import type { PrismaClient, User, Role } from "@prisma/client";
 
 export interface CreateUserData {
   email: string;
@@ -8,10 +8,23 @@ export interface CreateUserData {
   phone?: string;
 }
 
+export interface AuthFilters {
+  role?: Role;
+}
+
+export interface AuthPagination {
+  page: number;
+  limit: number;
+}
+
 export interface AuthRepository {
   findByEmail(email: string): Promise<User | null>;
   findById(id: string): Promise<User | null>;
   create(data: CreateUserData): Promise<User>;
+  findAllAdmin(
+    filters: AuthFilters,
+    pagination: AuthPagination,
+  ): Promise<{ users: User[]; total: number }>;
 }
 
 export class PrismaAuthRepository implements AuthRepository {
@@ -27,5 +40,23 @@ export class PrismaAuthRepository implements AuthRepository {
 
   async create(data: CreateUserData): Promise<User> {
     return this.prisma.user.create({ data });
+  }
+
+  async findAllAdmin(filters: AuthFilters, pagination: AuthPagination) {
+    const { page, limit } = pagination;
+    const skip = (page - 1) * limit;
+    const where = filters.role ? { role: filters.role } : {};
+
+    const [users, total] = await Promise.all([
+      this.prisma.user.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+
+    return { users, total };
   }
 }

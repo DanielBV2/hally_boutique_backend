@@ -18,3 +18,12 @@ export interface RefreshResponseDTO {
   accessToken: string;
   refreshToken: string;
 }
+
+export interface AdminUserListItemDTO {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: string;
+  createdAt: Date;
+}
