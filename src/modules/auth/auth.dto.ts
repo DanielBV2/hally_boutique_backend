@@ -10,5 +10,11 @@ export interface UserProfileDTO {
 
 export interface AuthResponseDTO {
   user: UserProfileDTO;
-  token: string;
+  accessToken: string;
+  refreshToken: string;
+}
+
+export interface RefreshResponseDTO {
+  accessToken: string;
+  refreshToken: string;
 }

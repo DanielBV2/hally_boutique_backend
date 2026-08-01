@@ -1,6 +1,10 @@
 import type { Request, Response } from "express";
 import type { AuthService } from "./auth.service.js";
-import type { RegisterInput, LoginInput } from "./auth.schema.js";
+import type {
+  RegisterInput,
+  LoginInput,
+  RefreshTokenInput,
+} from "./auth.schema.js";
 import type { ApiResponse } from "../../shared/types/api-response.js";
 
 export class AuthController {
@@ -27,6 +31,22 @@ export class AuthController {
     const result = await this.service.getProfile(userId);
 
     const body: ApiResponse<typeof result> = { success: true, data: result };
+    res.status(200).json(body);
+  };
+
+  refresh = async (req: Request, res: Response) => {
+    const { refreshToken } = req.body as RefreshTokenInput;
+    const result = await this.service.refresh(refreshToken);
+
+    const body: ApiResponse<typeof result> = { success: true, data: result };
+    res.status(200).json(body);
+  };
+
+  logout = async (req: Request, res: Response) => {
+    const { refreshToken } = req.body as RefreshTokenInput;
+    await this.service.logout(refreshToken);
+
+    const body: ApiResponse<null> = { success: true, data: null };
     res.status(200).json(body);
   };
 }

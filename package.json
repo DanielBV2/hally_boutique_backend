@@ -9,8 +9,10 @@
     "start": "node dist/server.js",
     "test": "vitest run",
     "test:watch": "vitest",
+    "postinstall": "prisma generate",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
+    "prisma:migrate": "prisma migrate dev && prisma generate",
+    "prisma:migrate:deploy": "prisma migrate deploy && prisma generate",
     "prisma:studio": "prisma studio"
   },
   "keywords": [],

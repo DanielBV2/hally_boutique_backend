@@ -1,7 +1,12 @@
 import bcrypt from "bcrypt";
 import jsonwebtoken from "jsonwebtoken";
 import type { AuthRepository } from "./auth.repository.js";
-import type { AuthResponseDTO, UserProfileDTO } from "./auth.dto.js";
+import type { RefreshTokenRepository } from "./refresh-token.repository.js";
+import type {
+  AuthResponseDTO,
+  RefreshResponseDTO,
+  UserProfileDTO,
+} from "./auth.dto.js";
 import type { RegisterInput, LoginInput } from "./auth.schema.js";
 import {
   ConflictError,
@@ -9,13 +14,21 @@ import {
   NotFoundError,
 } from "../../shared/errors/app-error.js";
 import { env } from "../../config/env.js";
+import {
+  generateRefreshToken,
+  hashRefreshToken,
+} from "../../shared/utils/refreshToken.js";
 import type { Role } from "@prisma/client";
 
 const SALT_ROUNDS = 12;
+const INVALID_SESSION_MESSAGE =
+  "Sesión inválida, por favor inicia sesión de nuevo";
 
 export interface AuthService {
   register(data: RegisterInput): Promise<AuthResponseDTO>;
   login(data: LoginInput): Promise<AuthResponseDTO>;
+  refresh(refreshTokenPlain: string): Promise<RefreshResponseDTO>;
+  logout(refreshTokenPlain: string): Promise<void>;
   getProfile(userId: string): Promise<UserProfileDTO>;
 }
 
@@ -55,7 +68,16 @@ function signToken(payload: {
 }
 
 export class AuthServiceImpl implements AuthService {
-  constructor(private readonly repository: AuthRepository) {}
+  constructor(
+    private readonly repository: AuthRepository,
+    private readonly refreshTokenRepository: RefreshTokenRepository,
+  ) {}
+
+  private refreshTokenExpiresAt(): Date {
+    return new Date(
+      Date.now() + env.REFRESH_TOKEN_EXPIRES_IN_DAYS * 24 * 60 * 60 * 1000,
+    );
+  }
 
   async register(data: RegisterInput): Promise<AuthResponseDTO> {
     const existing = await this.repository.findByEmail(data.email);
@@ -73,15 +95,23 @@ export class AuthServiceImpl implements AuthService {
       ...(data.phone !== undefined && { phone: data.phone }),
     });
 
-    const token = signToken({
+    const accessToken = signToken({
       sub: user.id,
       email: user.email,
       role: user.role,
     });
 
+    const refreshToken = generateRefreshToken();
+    await this.refreshTokenRepository.create(
+      user.id,
+      hashRefreshToken(refreshToken),
+      this.refreshTokenExpiresAt(),
+    );
+
     return {
       user: toUserProfileDTO(user),
-      token,
+      accessToken,
+      refreshToken,
     };
   }
 
@@ -96,16 +126,74 @@ export class AuthServiceImpl implements AuthService {
       throw new UnauthorizedError("Credenciales inválidas");
     }
 
-    const token = signToken({
+    const accessToken = signToken({
       sub: user.id,
       email: user.email,
       role: user.role,
     });
 
+    const refreshToken = generateRefreshToken();
+    await this.refreshTokenRepository.create(
+      user.id,
+      hashRefreshToken(refreshToken),
+      this.refreshTokenExpiresAt(),
+    );
+
     return {
       user: toUserProfileDTO(user),
-      token,
+      accessToken,
+      refreshToken,
     };
+  }
+
+  async refresh(refreshTokenPlain: string): Promise<RefreshResponseDTO> {
+    const tokenHash = hashRefreshToken(refreshTokenPlain);
+    const record = await this.refreshTokenRepository.findByHash(tokenHash);
+
+    if (!record) {
+      throw new UnauthorizedError(INVALID_SESSION_MESSAGE);
+    }
+
+    if (record.revokedAt !== null) {
+      await this.refreshTokenRepository.revokeAllForUser(record.userId);
+      throw new UnauthorizedError(INVALID_SESSION_MESSAGE);
+    }
+
+    if (record.expiresAt < new Date()) {
+      throw new UnauthorizedError(INVALID_SESSION_MESSAGE);
+    }
+
+    const user = await this.repository.findById(record.userId);
+    if (!user) {
+      throw new UnauthorizedError(INVALID_SESSION_MESSAGE);
+    }
+
+    const accessToken = signToken({
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    });
+
+    const refreshToken = generateRefreshToken();
+    const newRecord = await this.refreshTokenRepository.create(
+      user.id,
+      hashRefreshToken(refreshToken),
+      this.refreshTokenExpiresAt(),
+    );
+    await this.refreshTokenRepository.revoke(record.id, newRecord.id);
+
+    return { accessToken, refreshToken };
+  }
+
+  async logout(refreshTokenPlain: string): Promise<void> {
+    const tokenHash = hashRefreshToken(refreshTokenPlain);
+    const record = await this.refreshTokenRepository.findByHash(tokenHash);
+
+    if (!record || record.revokedAt !== null) {
+      return;
+    }
+
+    await this.refreshTokenRepository.revoke(record.id);
   }
 
   async getProfile(userId: string): Promise<UserProfileDTO> {
