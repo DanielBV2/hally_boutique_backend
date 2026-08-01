@@ -1,12 +1,15 @@
 import { Router } from "express";
 import { validateSchemaMiddleware } from "../../middlewares/validateSchemaMiddleware.js";
 import { authMiddleware } from "../../middlewares/authMiddleware.js";
+import { roleMiddleware } from "../../middlewares/roleMiddleware.js";
 import {
   createOrderSchema,
   listOrdersQuerySchema,
   idParamsSchema,
   orderIdParamsSchema,
   shippingSelectionSchema,
+  adminOrdersQuerySchema,
+  updateOrderStatusSchema,
 } from "./order.schema.js";
 import { OrderController } from "./order.controller.js";
 import { PrismaOrderRepository } from "./order.repository.js";
@@ -44,6 +47,28 @@ const paymentController = new PaymentController(paymentService);
 const router = Router();
 
 router.use(authMiddleware);
+
+router.get(
+  "/admin/all",
+  roleMiddleware("ADMIN"),
+  validateSchemaMiddleware(adminOrdersQuerySchema, "query"),
+  orderController.listAllAdmin,
+);
+
+router.get(
+  "/admin/:id",
+  roleMiddleware("ADMIN"),
+  validateSchemaMiddleware(idParamsSchema, "params"),
+  orderController.getByIdAdmin,
+);
+
+router.patch(
+  "/admin/:id/status",
+  roleMiddleware("ADMIN"),
+  validateSchemaMiddleware(idParamsSchema, "params"),
+  validateSchemaMiddleware(updateOrderStatusSchema, "body"),
+  orderController.updateStatusAdmin,
+);
 
 router.get(
   "/",

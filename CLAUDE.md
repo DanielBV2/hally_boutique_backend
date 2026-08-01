@@ -101,6 +101,26 @@ propiedad completa. body y params sí se pueden reasignar normalmente
 - PENDIENTE (antes de producción real): refresh tokens — hoy solo hay access token
   de larga duración, aceptable para desarrollo pero no ideal para producción.
 
+## Refresh Tokens — COMPLETADO Y VERIFICADO
+Access token JWT reducido a 15 minutos de vida (antes 7 días). Refresh
+token opaco (crypto random, 40 bytes), hasheado con SHA256 en DB, nunca
+almacenado en texto plano.
+
+Rotación en cada uso: al refrescar, el token usado se marca revoked y se
+emite uno nuevo (replacedByTokenId enlaza la cadena).
+
+Detección de reuso verificada end-to-end: usar un refresh token ya
+revocado dispara revokeAllForUser(), invalidando TODA la sesión del
+usuario (no solo ese token) — protege contra el escenario de un refresh
+token robado siendo usado en paralelo al legítimo.
+
+Endpoints: POST /auth/refresh, POST /auth/logout (idempotente).
+AuthResponseDTO renombrado: "token" → "accessToken" + "refreshToken" nuevo.
+
+PENDIENTE (no bloqueante): investigar por qué prisma migrate dev no
+regenera el cliente automáticamente en este proyecto — requiere
+prisma generate manual después de cada migración, repetido 3+ veces.
+
 ## Categories (implementado)
 - Mismo patrón de soft delete (isActive) que Product y Variant.
 - Slug generado en el Service a partir de name, con colisión manejada igual
@@ -364,6 +384,23 @@ real — validarían la capa de Repository/Prisma en sí (queries, constraints,
 transacciones), que hoy solo están cubiertas por el testing manual ya
 realizado. No es urgente: los services (la lógica de negocio más
 propensa a bugs sutiles) ya están protegidos.
+
+## Testing automatizado — 92/92 tests pasando (conteo corregido)
+[Nota: el conteo anterior en este archivo estaba desactualizado — se
+detectó y corrigió el 01/08/2026]
+
+## Panel de administración — Fase A (gestión de órdenes) COMPLETADA
+GET /orders/admin/all, GET /orders/admin/:id, PATCH /orders/admin/:id/status
+— todas ADMIN-only. Máquina de estados manual: PAID → PROCESSING → SHIPPED
+→ DELIVERED, solo hacia adelante, nunca desde PENDING/CANCELLED/REFUNDED
+(esos los controla el sistema automáticamente vía webhook de pago).
+PENDIENTE: Fase B (catálogo admin) y Fase C (usuarios + métricas).
+
+## Panel de administración — Fase A COMPLETADA Y VERIFICADA
+Probado manualmente end-to-end: listado completo con filtro por status,
+detalle sin restricción de ownership, progresión de estado válida/inválida,
+bloqueo correcto para no-admins (403), y confirmado que el orden de rutas
+(/admin/all antes de /:orderId) no colisiona en Express real.
 
 ## Estado actual del proyecto (actualizado)
 - [x] Schema de Prisma completo y migrado

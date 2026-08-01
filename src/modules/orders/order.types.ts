@@ -38,3 +38,16 @@ export type OrderWithItems = Prisma.OrderGetPayload<{
     items: true;
   };
 }>;
+
+export type AdminOrderWithUser = Prisma.OrderGetPayload<{
+  include: {
+    items: true;
+    user: {
+      select: {
+        email: true;
+        firstName: true;
+        lastName: true;
+      };
+    };
+  };
+}>;

@@ -28,3 +28,19 @@ export const shippingSelectionSchema = z.object({
 });
 
 export type ShippingSelectionInput = z.infer<typeof shippingSelectionSchema>;
+
+export const adminOrdersQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().positive().max(50).default(20),
+  status: z
+    .enum(["PENDING", "PAID", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED", "REFUNDED"])
+    .optional(),
+});
+
+export type AdminOrdersQuery = z.infer<typeof adminOrdersQuerySchema>;
+
+export const updateOrderStatusSchema = z.object({
+  status: z.enum(["PROCESSING", "SHIPPED", "DELIVERED"]), // solo estos 3 son manuales
+});
+
+export type UpdateOrderStatusInput = z.infer<typeof updateOrderStatusSchema>;

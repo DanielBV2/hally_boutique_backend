@@ -1,6 +1,10 @@
 import { PrismaClient, Prisma } from "@prisma/client";
-import type { CreateOrderData, OrderWithItems, Pagination } from "./order.types.js";
+import type { CreateOrderData, OrderWithItems, Pagination, AdminOrderWithUser } from "./order.types.js";
 import type { OrderStatus } from "@prisma/client";
+
+export interface OrderFilters {
+  status?: OrderStatus;
+}
 
 export interface OrderRepository {
   findByIdempotencyKey(userId: string, key: string): Promise<OrderWithItems | null>;
@@ -8,7 +12,12 @@ export interface OrderRepository {
     userId: string,
     pagination: Pagination,
   ): Promise<{ orders: OrderWithItems[]; total: number }>;
+  findAllAdmin(
+    filters: OrderFilters,
+    pagination: Pagination,
+  ): Promise<{ orders: AdminOrderWithUser[]; total: number }>;
   findByIdWithItems(id: string): Promise<OrderWithItems | null>;
+  findByIdAdmin(id: string): Promise<AdminOrderWithUser | null>;
   createWithItems(data: CreateOrderData): Promise<OrderWithItems>;
   updateStatus(orderId: string, status: OrderStatus, tx?: Prisma.TransactionClient): Promise<void>;
   updateShippingLabel(
@@ -31,6 +40,17 @@ export interface OrderRepository {
 
 const includeItems = {
   items: true,
+} satisfies Prisma.OrderInclude;
+
+const includeItemsWithUser = {
+  items: true,
+  user: {
+    select: {
+      email: true,
+      firstName: true,
+      lastName: true,
+    },
+  },
 } satisfies Prisma.OrderInclude;
 
 export class PrismaOrderRepository implements OrderRepository {
@@ -61,10 +81,36 @@ export class PrismaOrderRepository implements OrderRepository {
     return { orders, total };
   }
 
+  async findAllAdmin(filters: OrderFilters, pagination: Pagination) {
+    const { page, limit } = pagination;
+    const skip = (page - 1) * limit;
+    const where = filters.status ? { status: filters.status } : {};
+
+    const [orders, total] = await Promise.all([
+      this.prisma.order.findMany({
+        where,
+        include: includeItemsWithUser,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+      }),
+      this.prisma.order.count({ where }),
+    ]);
+
+    return { orders, total };
+  }
+
   async findByIdWithItems(id: string) {
     return this.prisma.order.findUnique({
       where: { id },
       include: includeItems,
+    });
+  }
+
+  async findByIdAdmin(id: string) {
+    return this.prisma.order.findUnique({
+      where: { id },
+      include: includeItemsWithUser,
     });
   }
 

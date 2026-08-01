@@ -27,7 +27,7 @@ import { OrderServiceImpl } from "../../../src/modules/orders/order.service.js";
 import type { OrderRepository } from "../../../src/modules/orders/order.repository.js";
 import type { CartRepository } from "../../../src/modules/cart/cart.repository.js";
 import type { AddressRepository } from "../../../src/modules/addresses/address.repository.js";
-import type { OrderWithItems } from "../../../src/modules/orders/order.types.js";
+import type { OrderWithItems, AdminOrderWithUser } from "../../../src/modules/orders/order.types.js";
 import { ValidationError, NotFoundError, ConflictError } from "../../../src/shared/errors/app-error.js";
 import { getAllShippingRates } from "../../../src/shared/utils/shippingClient.js";
 import { getStaticShippingEstimate } from "../../../src/shared/utils/staticShippingRates.js";
@@ -36,7 +36,9 @@ function mockOrderRepo(): OrderRepository {
   return {
     findByIdempotencyKey: vi.fn(),
     findManyByUser: vi.fn(),
+    findAllAdmin: vi.fn(),
     findByIdWithItems: vi.fn(),
+    findByIdAdmin: vi.fn(),
     createWithItems: vi.fn(),
     updateStatus: vi.fn(),
     updateShippingLabel: vi.fn(),
@@ -94,6 +96,18 @@ function makeOrder(overrides: Partial<OrderWithItems> = {}): OrderWithItems {
     ...overrides,
     items: overrides.items ?? [],
   } as OrderWithItems;
+}
+
+function makeAdminOrder(overrides: Partial<AdminOrderWithUser> = {}): AdminOrderWithUser {
+  return {
+    ...makeOrder(),
+    user: {
+      email: "customer@example.com",
+      firstName: "Ana",
+      lastName: "Gomez",
+    },
+    ...overrides,
+  } as AdminOrderWithUser;
 }
 
 function makeCartItem(overrides: Record<string, unknown> = {}) {
@@ -461,6 +475,112 @@ describe("OrderServiceImpl", () => {
 
       expect(result.shippingAmount).toBe(0);
       expect(result.total).toBe(238000);
+    });
+  });
+
+  describe("listAllOrdersAdmin", () => {
+    it("llama findAllAdmin (no findManyByUser) y mapea customerEmail/customerName", async () => {
+      const order = makeAdminOrder({
+        status: "PAID",
+        items: [],
+        user: { email: "customer@example.com", firstName: "Ana", lastName: "Gomez" },
+      });
+      vi.mocked(orderRepo.findAllAdmin).mockResolvedValue({ orders: [order], total: 1 });
+
+      const result = await service.listAllOrdersAdmin({}, { page: 1, limit: 20 });
+
+      expect(orderRepo.findAllAdmin).toHaveBeenCalledWith({}, { page: 1, limit: 20 });
+      expect(orderRepo.findManyByUser).not.toHaveBeenCalled();
+      expect(result.total).toBe(1);
+      expect(result.items[0]).toMatchObject({
+        id: "order-1",
+        customerEmail: "customer@example.com",
+        customerName: "Ana Gomez",
+      });
+    });
+
+    it("filtra por status cuando se provee", async () => {
+      vi.mocked(orderRepo.findAllAdmin).mockResolvedValue({ orders: [], total: 0 });
+
+      await service.listAllOrdersAdmin({ status: "PAID" }, { page: 2, limit: 50 });
+
+      expect(orderRepo.findAllAdmin).toHaveBeenCalledWith(
+        { status: "PAID" },
+        { page: 2, limit: 50 },
+      );
+    });
+  });
+
+  describe("getOrderByIdAdmin", () => {
+    it("lanza NotFoundError si la orden no existe", async () => {
+      vi.mocked(orderRepo.findByIdAdmin).mockResolvedValue(null);
+
+      await expect(service.getOrderByIdAdmin("order-1")).rejects.toThrow(NotFoundError);
+    });
+
+    it("devuelve el DTO con datos del cliente si la orden existe", async () => {
+      const order = makeAdminOrder({
+        status: "PAID",
+        user: { email: "customer@example.com", firstName: "Ana", lastName: "Gomez" },
+      });
+      vi.mocked(orderRepo.findByIdAdmin).mockResolvedValue(order);
+
+      const result = await service.getOrderByIdAdmin("order-1");
+
+      expect(result.id).toBe("order-1");
+      expect(result.status).toBe("PAID");
+      expect(result.customerEmail).toBe("customer@example.com");
+      expect(result.customerName).toBe("Ana Gomez");
+    });
+  });
+
+  describe("updateOrderStatusAdmin", () => {
+    it("PAID -> PROCESSING es valido y devuelve el DTO actualizado", async () => {
+      const order = makeAdminOrder({ status: "PAID" });
+      const updated = makeAdminOrder({ status: "PROCESSING" });
+      vi.mocked(orderRepo.findByIdAdmin)
+        .mockResolvedValueOnce(order)
+        .mockResolvedValueOnce(updated);
+
+      const result = await service.updateOrderStatusAdmin("order-1", "PROCESSING");
+
+      expect(orderRepo.updateStatus).toHaveBeenCalledWith("order-1", "PROCESSING");
+      expect(result.status).toBe("PROCESSING");
+    });
+
+    it("PENDING -> SHIPPED es invalido (status actual fuera de la progresion) -> ConflictError", async () => {
+      vi.mocked(orderRepo.findByIdAdmin).mockResolvedValue(
+        makeAdminOrder({ status: "PENDING" }),
+      );
+
+      await expect(
+        service.updateOrderStatusAdmin("order-1", "SHIPPED"),
+      ).rejects.toThrow(ConflictError);
+      expect(orderRepo.updateStatus).not.toHaveBeenCalled();
+    });
+
+    it("DELIVERED -> PROCESSING es invalido (retroceder) -> ConflictError", async () => {
+      vi.mocked(orderRepo.findByIdAdmin).mockResolvedValue(
+        makeAdminOrder({ status: "DELIVERED" }),
+      );
+
+      await expect(
+        service.updateOrderStatusAdmin("order-1", "PROCESSING"),
+      ).rejects.toThrow(ConflictError);
+      expect(orderRepo.updateStatus).not.toHaveBeenCalled();
+    });
+
+    it("PAID -> DELIVERED es un salto permitido hacia adelante -> exito", async () => {
+      const order = makeAdminOrder({ status: "PAID" });
+      const updated = makeAdminOrder({ status: "DELIVERED" });
+      vi.mocked(orderRepo.findByIdAdmin)
+        .mockResolvedValueOnce(order)
+        .mockResolvedValueOnce(updated);
+
+      const result = await service.updateOrderStatusAdmin("order-1", "DELIVERED");
+
+      expect(orderRepo.updateStatus).toHaveBeenCalledWith("order-1", "DELIVERED");
+      expect(result.status).toBe("DELIVERED");
     });
   });
 });

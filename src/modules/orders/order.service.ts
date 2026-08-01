@@ -1,9 +1,20 @@
-import type { OrderRepository } from "./order.repository.js";
+import type { OrderRepository, OrderFilters } from "./order.repository.js";
 import type { AddressRepository } from "../addresses/address.repository.js";
 import type { CartRepository } from "../cart/cart.repository.js";
-import type { OrderListItemDTO, OrderDetailDTO, OrderItemDTO } from "./order.dto.js";
-import type { CreateOrderInput, ListOrdersQuery, ShippingSelectionInput } from "./order.schema.js";
-import type { OrderWithItems, CreateOrderItemData } from "./order.types.js";
+import type {
+  OrderListItemDTO,
+  OrderDetailDTO,
+  OrderItemDTO,
+  AdminOrderListItemDTO,
+  AdminOrderDetailDTO,
+} from "./order.dto.js";
+import type {
+  CreateOrderInput,
+  ListOrdersQuery,
+  ShippingSelectionInput,
+} from "./order.schema.js";
+import type { OrderWithItems, CreateOrderItemData, AdminOrderWithUser, Pagination } from "./order.types.js";
+import type { OrderStatus } from "@prisma/client";
 import {
   NotFoundError,
   ConflictError,
@@ -23,6 +34,12 @@ export interface OrderService {
   createOrderFromCart(userId: string, data: CreateOrderInput): Promise<OrderDetailDTO>;
   getShippingQuote(userId: string, orderId: string): Promise<ShippingRateOption[]>;
   selectShipping(userId: string, orderId: string, data: ShippingSelectionInput): Promise<OrderDetailDTO>;
+  listAllOrdersAdmin(
+    filters: OrderFilters,
+    pagination: Pagination,
+  ): Promise<{ items: AdminOrderListItemDTO[]; total: number }>;
+  getOrderByIdAdmin(orderId: string): Promise<AdminOrderDetailDTO>;
+  updateOrderStatusAdmin(orderId: string, newStatus: OrderStatus): Promise<AdminOrderDetailDTO>;
 }
 
 function toItemDTO(item: OrderWithItems["items"][number]): OrderItemDTO {
@@ -74,6 +91,22 @@ function toListItemDTO(order: OrderWithItems): OrderListItemDTO {
     currency: order.currency,
     itemsCount: order.items.length,
     createdAt: order.createdAt,
+  };
+}
+
+function toAdminListItemDTO(order: AdminOrderWithUser): AdminOrderListItemDTO {
+  return {
+    ...toListItemDTO(order),
+    customerEmail: order.user.email,
+    customerName: `${order.user.firstName} ${order.user.lastName}`.trim(),
+  };
+}
+
+function toAdminDetailDTO(order: AdminOrderWithUser): AdminOrderDetailDTO {
+  return {
+    ...toDetailDTO(order),
+    customerEmail: order.user.email,
+    customerName: `${order.user.firstName} ${order.user.lastName}`.trim(),
   };
 }
 
@@ -309,5 +342,47 @@ export class OrderServiceImpl implements OrderService {
     });
 
     return toDetailDTO(updated);
+  }
+
+  async listAllOrdersAdmin(filters: OrderFilters, pagination: Pagination) {
+    const { orders, total } = await this.orderRepository.findAllAdmin(filters, pagination);
+
+    return {
+      items: orders.map(toAdminListItemDTO),
+      total,
+    };
+  }
+
+  async getOrderByIdAdmin(orderId: string) {
+    const order = await this.orderRepository.findByIdAdmin(orderId);
+    if (!order) {
+      throw new NotFoundError("Order");
+    }
+    return toAdminDetailDTO(order);
+  }
+
+  async updateOrderStatusAdmin(orderId: string, newStatus: OrderStatus) {
+    const order = await this.orderRepository.findByIdAdmin(orderId);
+    if (!order) {
+      throw new NotFoundError("Order");
+    }
+
+    const progression = ["PAID", "PROCESSING", "SHIPPED", "DELIVERED"] as const;
+    const currentIndex = progression.indexOf(order.status as (typeof progression)[number]);
+    const nextIndex = progression.indexOf(newStatus as (typeof progression)[number]);
+
+    if (currentIndex === -1 || nextIndex === -1 || nextIndex <= currentIndex) {
+      throw new ConflictError(
+        `Transición de estado inválida: no se puede pasar de ${order.status} a ${newStatus}`,
+      );
+    }
+
+    await this.orderRepository.updateStatus(orderId, newStatus);
+
+    const updated = await this.orderRepository.findByIdAdmin(orderId);
+    if (!updated) {
+      throw new NotFoundError("Order");
+    }
+    return toAdminDetailDTO(updated);
   }
 }

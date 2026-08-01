@@ -41,3 +41,13 @@ export interface OrderDetailDTO {
   shippingLabelUrl: string | null;
   createdAt: Date;
 }
+
+export interface AdminOrderListItemDTO extends OrderListItemDTO {
+  customerEmail: string;
+  customerName: string;
+}
+
+export interface AdminOrderDetailDTO extends OrderDetailDTO {
+  customerEmail: string;
+  customerName: string;
+}
