@@ -7,6 +7,13 @@ vi.mock("../../../src/config/env.js", () => ({
     WOMPI_INTEGRITY_SECRET: "test_integrity_secret",
     WOMPI_EVENTS_SECRET: "test_events_secret",
     WOMPI_REDIRECT_URL: "https://example.com/redirect",
+    SHIPPING_ORIGIN_NAME: "Hally Boutique",
+    SHIPPING_ORIGIN_PHONE: "3001234567",
+    SHIPPING_ORIGIN_STREET: "Calle 123",
+    SHIPPING_ORIGIN_CITY: "Barranquilla",
+    SHIPPING_ORIGIN_STATE: "Atlantico",
+    SHIPPING_ORIGIN_COUNTRY: "CO",
+    SHIPPING_ORIGIN_POSTALCODE: "080001",
   },
 }));
 
@@ -19,6 +26,13 @@ vi.mock("../../../src/shared/utils/wompiClient.js", () => ({
   voidWompiTransaction: vi.fn(),
 }));
 
+vi.mock("../../../src/shared/utils/shippingClient.js", () => ({
+  generateShippingLabel: vi.fn(),
+  getShippingRate: vi.fn(),
+  getAllShippingRates: vi.fn(),
+  extractStreetNumber: vi.fn(),
+}));
+
 import { PaymentServiceImpl } from "../../../src/modules/payments/payment.service.js";
 import type { PaymentRepository } from "../../../src/modules/payments/payment.repository.js";
 import type { OrderRepository } from "../../../src/modules/orders/order.repository.js";
@@ -28,6 +42,7 @@ import type { OrderWithItems } from "../../../src/modules/orders/order.types.js"
 import { NotFoundError, ConflictError, UnauthorizedError } from "../../../src/shared/errors/app-error.js";
 import { generateIntegritySignature, verifyEventChecksum } from "../../../src/shared/utils/wompiSignature.js";
 import { voidWompiTransaction } from "../../../src/shared/utils/wompiClient.js";
+import { generateShippingLabel } from "../../../src/shared/utils/shippingClient.js";
 
 function mockPaymentRepo(): PaymentRepository {
   return {
@@ -46,6 +61,7 @@ function mockOrderRepo(): OrderRepository {
     findByIdWithItems: vi.fn(),
     createWithItems: vi.fn(),
     updateStatus: vi.fn(),
+    updateShippingLabel: vi.fn(),
     updateShippingAndTotal: vi.fn(),
   };
 }
@@ -95,6 +111,8 @@ function makeOrder(overrides: Partial<OrderWithItems> = {}): OrderWithItems {
     shippingPostalCode: "050001",
     shippingCarrier: null,
     shippingService: null,
+    shippingTrackingNumber: null,
+    shippingLabelUrl: null,
     idempotencyKey: "idem-key-1",
     createdAt: new Date("2026-01-01"),
     updatedAt: new Date("2026-01-01"),
@@ -223,23 +241,92 @@ describe("PaymentServiceImpl", () => {
       expect(paymentRepo.updateStatus).not.toHaveBeenCalled();
     });
 
-    it("APPROVED + stock disponible → Order PAID, Payment SUCCEEDED, clearCart", async () => {
+    it("APPROVED + stock disponible → Order PAID, Payment SUCCEEDED, clearCart, guía generada", async () => {
       vi.mocked(verifyEventChecksum).mockReturnValue(true);
       vi.mocked(paymentRepo.findByProviderReferenceId).mockResolvedValue({
         id: "pay-1",
         order: makeOrder({
           userId: "user-1",
-          items: [{ variantId: "v1", quantity: 2 }],
+          shippingCarrier: "coordinadora",
+          shippingService: "express",
+          items: [{ variantId: "v1", quantity: 2, weightGrams: 300 } as any],
         }),
       } as any);
       vi.mocked(variantStockRepo.decrementStockIfAvailable).mockResolvedValue(true);
       vi.mocked(cartRepo.findOrCreateByUserId).mockResolvedValue({ id: "cart-1" } as any);
+      vi.mocked(generateShippingLabel).mockResolvedValue({
+        success: true,
+        trackingNumber: "track-123",
+        labelUrl: "https://envia.com/label/123",
+        trackUrl: "https://envia.com/track/123",
+      });
 
       await service.processWebhookEvent(makeWebhookEvent());
 
       expect(orderRepo.updateStatus).toHaveBeenCalledWith("order-1", "PAID", expect.anything());
       expect(paymentRepo.updateStatus).toHaveBeenCalledWith("pay-1", "SUCCEEDED");
       expect(cartRepo.clearCart).toHaveBeenCalledWith("cart-1");
+      expect(generateShippingLabel).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: "Hally Boutique",
+          state: "ATL",
+        }),
+        expect.objectContaining({
+          name: "Juan Pérez",
+          street: "Calle 123",
+          state: "ANT",
+        }),
+        expect.arrayContaining([
+          expect.objectContaining({
+            weight: 0.6,
+            weightUnit: "KG",
+            content: "Ropa",
+            declaredValue: 100000,
+          }),
+        ]),
+        "coordinadora",
+        "express",
+      );
+      expect(orderRepo.updateShippingLabel).toHaveBeenCalledWith("order-1", {
+        shippingTrackingNumber: "track-123",
+        shippingLabelUrl: "https://envia.com/label/123",
+      });
+    });
+
+    it("APPROVED + guía fallida → Order sigue en PAID, console.error con GENERACIÓN DE GUÍA FALLIDA", async () => {
+      vi.mocked(verifyEventChecksum).mockReturnValue(true);
+      vi.mocked(paymentRepo.findByProviderReferenceId).mockResolvedValue({
+        id: "pay-1",
+        order: makeOrder({
+          userId: "user-1",
+          shippingCarrier: "coordinadora",
+          shippingService: "express",
+          items: [{ variantId: "v1", quantity: 2, weightGrams: 300 } as any],
+        }),
+      } as any);
+      vi.mocked(variantStockRepo.decrementStockIfAvailable).mockResolvedValue(true);
+      vi.mocked(cartRepo.findOrCreateByUserId).mockResolvedValue({ id: "cart-1" } as any);
+      vi.mocked(generateShippingLabel).mockResolvedValue({
+        success: false,
+        error: "envia.com timeout",
+      });
+
+      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      await service.processWebhookEvent(makeWebhookEvent());
+
+      expect(orderRepo.updateStatus).toHaveBeenCalledWith("order-1", "PAID", expect.anything());
+      expect(orderRepo.updateStatus).not.toHaveBeenCalledWith("order-1", "CANCELLED");
+      expect(paymentRepo.updateStatus).toHaveBeenCalledWith("pay-1", "SUCCEEDED");
+      expect(orderRepo.updateShippingLabel).not.toHaveBeenCalled();
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining("GENERACIÓN DE GUÍA FALLIDA"),
+      );
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Order order-1"),
+      );
+
+      consoleSpy.mockRestore();
     });
 
     it("APPROVED + sin stock + void exitoso → Payment REFUNDED, Order CANCELLED", async () => {

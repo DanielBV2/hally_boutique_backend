@@ -39,6 +39,7 @@ function mockOrderRepo(): OrderRepository {
     findByIdWithItems: vi.fn(),
     createWithItems: vi.fn(),
     updateStatus: vi.fn(),
+    updateShippingLabel: vi.fn(),
     updateShippingAndTotal: vi.fn(),
   };
 }

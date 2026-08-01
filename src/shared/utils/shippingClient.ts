@@ -1,3 +1,8 @@
+export function extractStreetNumber(line1: string): string {
+  const match = line1.match(/\d+/);
+  return match ? match[0] : "S/N";
+}
+
 export interface ShippingRateOption {
   carrier: string;
   service: string;
@@ -37,8 +42,64 @@ export async function getShippingRate(
       totalPrice: parseFloat(String(r.totalPrice)),
       currency: String(r.currency),
     }));
-  } catch {
+  } catch (err) {
     return [];
+  }
+}
+
+export interface ShippingLabelResult {
+  success: boolean;
+  trackingNumber?: string;
+  labelUrl?: string;
+  trackUrl?: string;
+  error?: string;
+}
+
+export async function generateShippingLabel(
+  origin: object,
+  destination: object,
+  packages: object[],
+  carrier: string,
+  service: string,
+): Promise<ShippingLabelResult> {
+  try {
+    const response = await fetch(`${process.env.ENVIA_BASE_URL}/ship/generate/`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.ENVIA_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        origin,
+        destination,
+        packages,
+        shipment: { type: 1, carrier, service },
+        settings: {
+          printFormat: "PDF",
+          printSize: "STOCK_4X6",
+          currency: "COP",
+        },
+      }),
+    });
+    const json = (await response.json()) as {
+      meta?: string;
+      data?: Array<Record<string, unknown>>;
+    };
+    if (!response.ok || json.meta === "error" || !json.data?.[0]) {
+      return { success: false, error: JSON.stringify(json) };
+    }
+    const shipment = json.data[0];
+    return {
+      success: true,
+      trackingNumber: String(shipment.trackingNumber),
+      labelUrl: String(shipment.label),
+      trackUrl: String(shipment.trackUrl),
+    };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Unknown error",
+    };
   }
 }
 

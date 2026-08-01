@@ -153,6 +153,52 @@ tu servidor nunca procesa datos de tarjeta. Moneda nativa COP, sin conversión.
 - taxAmount y shippingAmount son 0 (placeholders) — cálculo real pendiente,
   funcionalidad futura no diseñada aún.
 
+## Shipping (Envia.com) — Fase 1 COMPLETADA Y VERIFICADA
+Flujo completo probado end-to-end en sandbox: shipping-quote (cotización
+real de InterRapidísimo/Coordinadora vía API), shipping-selection (con
+re-cotización autoritativa), envío gratis sobre FREE_SHIPPING_THRESHOLD,
+envío con costo real bajo el umbral, checkout bloqueado sin selección de
+envío (409), pago completo con Wompi incluyendo IVA + envío en el total,
+descuento de stock y vaciado de carrito confirmados tras pago exitoso.
+
+Bugs de formato de la API de Envia.com resueltos:
+- state debe ser código de 3 letras (ej. "BOL"), no nombre completo del
+  departamento — tabla de conversión en colombiaDepartmentCodes.ts.
+- packages requiere el campo "content" (descripción del contenido).
+- Precios en modo Sandbox de Envia.com son valores ficticios de prueba
+  (ej. $60, $70 COP) — NO representativos de tarifas reales; esto es
+  comportamiento esperado y documentado por Envia.com para su ambiente
+  de pruebas, confirmado directamente con ellos. En producción con
+  llaves reales, los montos reflejarán tarifas reales.
+
+PENDIENTE: remover el logging temporal [DEBUG Envia] de shippingClient.ts
+que se agregó para diagnosticar estos bugs (ya cumplió su propósito).
+
+## Shipping (Envia.com) — Fase 2 COMPLETADA Y VERIFICADA
+Generación automática de guía de envío tras confirmación de pago (webhook
+Wompi → Order PAID → generateShippingLabel). Verificado end-to-end: PDF
+real de guía descargado y confirmado, con tracking number real
+(ej. INTESBX679045), origen/destino/contenido/peso correctos.
+
+Campos adicionales requeridos por /ship/generate/ que NO eran necesarios
+en /ship/rate/ (descubiertos por iteración empírica, documentando para no
+repetir el ciclo de prueba-error):
+- settings: { printFormat: 'PDF', printSize: 'STOCK_4X6', currency: 'COP' }
+  — obligatorio en generate, no existe en rate.
+- number (número de la dirección, separado de street) — obligatorio en
+  ambos origin y destination para generate.
+  - Origen: viene de SHIPPING_ORIGIN_NUMBER (env var nueva).
+  - Destino: extraído automáticamente de shippingLine1 con regex
+    (extractStreetNumber) — DEUDA TÉCNICA CONSCIENTE: es una extracción
+    por adivinanza de texto libre, no un campo dedicado. Antes de
+    producción real, considerar rediseñar el formulario de direcciones
+    para pedir el número de forma explícita y separada.
+
+Si generateShippingLabel falla, el Order permanece en PAID (nunca se
+revierte un pago ya confirmado) — solo se loguea con
+"⚠️ GENERACIÓN DE GUÍA FALLIDA" para intervención manual desde el
+dashboard de Envia.com.
+
 ## Payments — Detalles técnicos de integración Wompi
 Ambientes: Sandbox (https://sandbox.wompi.co/v1) y Producción
 (https://production.wompi.co/v1), completamente separados, cada uno con

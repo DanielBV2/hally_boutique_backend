@@ -24,6 +24,7 @@ const envSchema = z.object({
   ENVIA_BASE_URL: z.string().url().default("https://api-test.envia.com"),
   TAX_RATE: z.coerce.number().min(0).max(1).default(0.19),
   FREE_SHIPPING_THRESHOLD: z.coerce.number().positive().default(150000),
+  SHIPPING_ORIGIN_NUMBER: z.string().min(1),
   SHIPPING_ORIGIN_NAME: z.string().min(1),
   SHIPPING_ORIGIN_PHONE: z.string().min(1),
   SHIPPING_ORIGIN_STREET: z.string().min(1),

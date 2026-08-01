@@ -11,6 +11,7 @@ import {
 } from "../../shared/errors/app-error.js";
 import { getAllShippingRates, type ShippingRateOption } from "../../shared/utils/shippingClient.js";
 import { getStaticShippingEstimate } from "../../shared/utils/staticShippingRates.js";
+import { toDepartmentCode } from "../../shared/utils/colombiaDepartmentCodes.js";
 import { env } from "../../config/env.js";
 
 export interface OrderService {
@@ -59,6 +60,8 @@ function toDetailDTO(order: OrderWithItems): OrderDetailDTO {
     shippingPostalCode: order.shippingPostalCode,
     shippingCarrier: order.shippingCarrier ?? null,
     shippingService: order.shippingService ?? null,
+    shippingTrackingNumber: order.shippingTrackingNumber ?? null,
+    shippingLabelUrl: order.shippingLabelUrl ?? null,
     createdAt: order.createdAt,
   };
 }
@@ -72,6 +75,27 @@ function toListItemDTO(order: OrderWithItems): OrderListItemDTO {
     itemsCount: order.items.length,
     createdAt: order.createdAt,
   };
+}
+
+export function buildPackagesFromOrder(order: OrderWithItems) {
+  const totalWeightGrams = order.items.reduce(
+    (sum, item) => sum + item.weightGrams * item.quantity,
+    0,
+  );
+  const totalKg = totalWeightGrams / 1000;
+
+  return [
+    {
+      weight: totalKg,
+      weightUnit: "KG",
+      lengthUnit: "CM",
+      dimensions: { length: 30, width: 25, height: 10 },
+      type: "box",
+      amount: 1,
+      content: "Ropa",
+      declaredValue: Number(order.subtotal),
+    },
+  ];
 }
 
 export class OrderServiceImpl implements OrderService {
@@ -187,7 +211,7 @@ export class OrderServiceImpl implements OrderService {
     const destination = {
       street: order.shippingLine1,
       city: order.shippingCity,
-      state: order.shippingState,
+      state: toDepartmentCode(order.shippingState),
       country: order.shippingCountry,
       postalCode: order.shippingPostalCode ?? "",
     };
@@ -196,8 +220,9 @@ export class OrderServiceImpl implements OrderService {
       name: env.SHIPPING_ORIGIN_NAME,
       phone: env.SHIPPING_ORIGIN_PHONE,
       street: env.SHIPPING_ORIGIN_STREET,
+      number: env.SHIPPING_ORIGIN_NUMBER,
       city: env.SHIPPING_ORIGIN_CITY,
-      state: env.SHIPPING_ORIGIN_STATE,
+      state: toDepartmentCode(env.SHIPPING_ORIGIN_STATE),
       country: env.SHIPPING_ORIGIN_COUNTRY,
       postalCode: env.SHIPPING_ORIGIN_POSTALCODE,
     };
@@ -206,19 +231,8 @@ export class OrderServiceImpl implements OrderService {
       (sum, item) => sum + item.weightGrams * item.quantity,
       0,
     );
-    const totalKg = totalWeightGrams / 1000;
 
-    const packages = [
-      {
-        weight: totalKg,
-        weightUnit: "KG",
-        lengthUnit: "CM",
-        dimensions: { length: 30, width: 25, height: 10 },
-        type: "box",
-        amount: 1,
-        declaredValue: Number(order.subtotal),
-      },
-    ];
+    const packages = buildPackagesFromOrder(order);
 
     const rates = await getAllShippingRates(origin, destination, packages);
 
@@ -245,7 +259,7 @@ export class OrderServiceImpl implements OrderService {
     const destination = {
       street: order.shippingLine1,
       city: order.shippingCity,
-      state: order.shippingState,
+      state: toDepartmentCode(order.shippingState),
       country: order.shippingCountry,
       postalCode: order.shippingPostalCode ?? "",
     };
@@ -255,7 +269,7 @@ export class OrderServiceImpl implements OrderService {
       phone: env.SHIPPING_ORIGIN_PHONE,
       street: env.SHIPPING_ORIGIN_STREET,
       city: env.SHIPPING_ORIGIN_CITY,
-      state: env.SHIPPING_ORIGIN_STATE,
+      state: toDepartmentCode(env.SHIPPING_ORIGIN_STATE),
       country: env.SHIPPING_ORIGIN_COUNTRY,
       postalCode: env.SHIPPING_ORIGIN_POSTALCODE,
     };
@@ -264,21 +278,13 @@ export class OrderServiceImpl implements OrderService {
       (sum, item) => sum + item.weightGrams * item.quantity,
       0,
     );
-    const totalKg = totalWeightGrams / 1000;
 
-    const packages = [
-      {
-        weight: totalKg,
-        weightUnit: "KG",
-        lengthUnit: "CM",
-        dimensions: { length: 30, width: 25, height: 10 },
-        type: "box",
-        amount: 1,
-        declaredValue: Number(order.subtotal),
-      },
-    ];
+    const packages = buildPackagesFromOrder(order);
 
-    const rates = await getAllShippingRates(origin, destination, packages);
+    let rates = await getAllShippingRates(origin, destination, packages);
+    if (rates.length === 0) {
+      rates = [getStaticShippingEstimate(order.shippingState, totalWeightGrams)];
+    }
     const match = rates.find(
       (r) => r.carrier === data.carrier && r.service === data.service,
     );

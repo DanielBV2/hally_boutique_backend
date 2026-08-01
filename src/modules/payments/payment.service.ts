@@ -8,6 +8,9 @@ import { NotFoundError, ConflictError, UnauthorizedError } from "../../shared/er
 import { env } from "../../config/env.js";
 import { generateIntegritySignature, verifyEventChecksum } from "../../shared/utils/wompiSignature.js";
 import { voidWompiTransaction } from "../../shared/utils/wompiClient.js";
+import { toDepartmentCode } from "../../shared/utils/colombiaDepartmentCodes.js";
+import { extractStreetNumber, generateShippingLabel } from "../../shared/utils/shippingClient.js";
+import { buildPackagesFromOrder } from "../orders/order.service.js";
 
 export interface VariantStockRepository {
   decrementStockIfAvailable(variantId: string, quantity: number, tx: unknown): Promise<boolean>;
@@ -143,6 +146,51 @@ export class PaymentServiceImpl implements PaymentService {
         await this.paymentRepository.updateStatus(payment.id, "SUCCEEDED");
         const cart = await this.cartRepository.findOrCreateByUserId(payment.order.userId);
         await this.cartRepository.clearCart(cart.id);
+
+        if (payment.order.shippingCarrier && payment.order.shippingService) {
+          const origin = {
+            name: env.SHIPPING_ORIGIN_NAME,
+            phone: env.SHIPPING_ORIGIN_PHONE,
+            street: env.SHIPPING_ORIGIN_STREET,
+            number: env.SHIPPING_ORIGIN_NUMBER,
+            city: env.SHIPPING_ORIGIN_CITY,
+            state: toDepartmentCode(env.SHIPPING_ORIGIN_STATE),
+            country: env.SHIPPING_ORIGIN_COUNTRY,
+            postalCode: env.SHIPPING_ORIGIN_POSTALCODE,
+          };
+
+          const destination = {
+            name: payment.order.shippingFullName,
+            phone: payment.order.shippingPhone,
+            street: payment.order.shippingLine1,
+            number: extractStreetNumber(payment.order.shippingLine1),
+            city: payment.order.shippingCity,
+            state: toDepartmentCode(payment.order.shippingState),
+            country: payment.order.shippingCountry,
+            postalCode: payment.order.shippingPostalCode ?? "",
+          };
+
+          const packages = buildPackagesFromOrder(payment.order);
+
+          const labelResult = await generateShippingLabel(
+            origin,
+            destination,
+            packages,
+            payment.order.shippingCarrier,
+            payment.order.shippingService,
+          );
+
+          if (labelResult.success) {
+            await this.orderRepository.updateShippingLabel(payment.order.id, {
+              shippingTrackingNumber: labelResult.trackingNumber ?? "",
+              shippingLabelUrl: labelResult.labelUrl ?? "",
+            });
+          } else {
+            console.error(
+              `⚠️ GENERACIÓN DE GUÍA FALLIDA — Order ${payment.order.id}, razón: ${labelResult.error}. Generar manualmente desde el dashboard de Envia.com.`,
+            );
+          }
+        }
         break;
       }
 

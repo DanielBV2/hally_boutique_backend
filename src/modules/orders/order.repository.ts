@@ -11,6 +11,13 @@ export interface OrderRepository {
   findByIdWithItems(id: string): Promise<OrderWithItems | null>;
   createWithItems(data: CreateOrderData): Promise<OrderWithItems>;
   updateStatus(orderId: string, status: OrderStatus, tx?: Prisma.TransactionClient): Promise<void>;
+  updateShippingLabel(
+    orderId: string,
+    data: {
+      shippingTrackingNumber: string;
+      shippingLabelUrl: string;
+    },
+  ): Promise<void>;
   updateShippingAndTotal(
     orderId: string,
     data: {
@@ -102,6 +109,22 @@ export class PrismaOrderRepository implements OrderRepository {
     await client.order.update({
       where: { id: orderId },
       data: { status },
+    });
+  }
+
+  async updateShippingLabel(
+    orderId: string,
+    data: {
+      shippingTrackingNumber: string;
+      shippingLabelUrl: string;
+    },
+  ) {
+    await this.prisma.order.update({
+      where: { id: orderId },
+      data: {
+        shippingTrackingNumber: data.shippingTrackingNumber,
+        shippingLabelUrl: data.shippingLabelUrl,
+      },
     });
   }
 

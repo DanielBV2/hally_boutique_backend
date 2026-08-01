@@ -1,6 +1,6 @@
-import type { PrismaClient, Payment, PaymentStatus, Order } from "@prisma/client";
+import type { PrismaClient, Payment, PaymentStatus, Order, OrderItem } from "@prisma/client";
 
-type OrderWithItems = Order & { items: { id: string; variantId: string; quantity: number }[] };
+type OrderWithItems = Order & { items: OrderItem[] };
 
 export interface PaymentRepository {
   findByOrderId(orderId: string): Promise<Payment | null>;
@@ -28,7 +28,7 @@ export class PrismaPaymentRepository implements PaymentRepository {
       include: {
         order: {
           include: {
-            items: { select: { id: true, variantId: true, quantity: true } },
+            items: true,
           },
         },
       },
