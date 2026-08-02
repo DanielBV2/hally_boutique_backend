@@ -5,6 +5,8 @@ vi.mock("../../../src/config/env.js", () => ({
     JWT_SECRET: "test-jwt-secret",
     JWT_EXPIRES_IN: "15m",
     REFRESH_TOKEN_EXPIRES_IN_DAYS: 30,
+    PASSWORD_RESET_TOKEN_EXPIRES_IN_MINUTES: 60,
+    FRONTEND_RESET_URL: "http://localhost:3000/reset",
   },
 }));
 
@@ -15,16 +17,22 @@ vi.mock("bcrypt", () => ({
   },
 }));
 
+vi.mock("../../../src/shared/utils/emailClient.js", () => ({
+  sendPasswordResetEmail: vi.fn(),
+}));
+
 import { AuthServiceImpl } from "../../../src/modules/auth/auth.service.js";
 import type { AuthRepository } from "../../../src/modules/auth/auth.repository.js";
 import type { RefreshTokenRepository } from "../../../src/modules/auth/refresh-token.repository.js";
-import type { User, Role, RefreshToken } from "@prisma/client";
+import type { PasswordResetTokenRepository } from "../../../src/modules/auth/password-reset-token.repository.js";
+import type { User, Role, RefreshToken, PasswordResetToken } from "@prisma/client";
 import {
   ConflictError,
   UnauthorizedError,
   NotFoundError,
 } from "../../../src/shared/errors/app-error.js";
 import { hashRefreshToken } from "../../../src/shared/utils/refreshToken.js";
+import { sendPasswordResetEmail } from "../../../src/shared/utils/emailClient.js";
 import bcrypt from "bcrypt";
 
 function mockAuthRepo(): AuthRepository {
@@ -32,6 +40,7 @@ function mockAuthRepo(): AuthRepository {
     findByEmail: vi.fn(),
     findById: vi.fn(),
     create: vi.fn(),
+    updatePassword: vi.fn(),
     findAllAdmin: vi.fn(),
   };
 }
@@ -42,6 +51,15 @@ function mockRefreshTokenRepo(): RefreshTokenRepository {
     findByHash: vi.fn(),
     revoke: vi.fn(),
     revokeAllForUser: vi.fn(),
+  };
+}
+
+function mockPasswordResetTokenRepo(): PasswordResetTokenRepository {
+  return {
+    create: vi.fn(),
+    findByHash: vi.fn(),
+    invalidateAllForUser: vi.fn(),
+    markAsUsed: vi.fn(),
   };
 }
 
@@ -75,16 +93,36 @@ function makeRefreshToken(
   };
 }
 
+function makePasswordResetToken(
+  overrides: Partial<PasswordResetToken> = {},
+): PasswordResetToken {
+  return {
+    id: "reset-token-1",
+    userId: "user-1",
+    tokenHash: "hash-of-reset-token",
+    expiresAt: new Date("2030-01-01"),
+    usedAt: null,
+    createdAt: new Date("2026-01-01"),
+    ...overrides,
+  };
+}
+
 describe("AuthServiceImpl", () => {
   let authRepo: ReturnType<typeof mockAuthRepo>;
   let refreshTokenRepo: ReturnType<typeof mockRefreshTokenRepo>;
+  let passwordResetTokenRepo: ReturnType<typeof mockPasswordResetTokenRepo>;
   let service: AuthServiceImpl;
 
   beforeEach(() => {
     vi.clearAllMocks();
     authRepo = mockAuthRepo();
     refreshTokenRepo = mockRefreshTokenRepo();
-    service = new AuthServiceImpl(authRepo, refreshTokenRepo);
+    passwordResetTokenRepo = mockPasswordResetTokenRepo();
+    service = new AuthServiceImpl(
+      authRepo,
+      refreshTokenRepo,
+      passwordResetTokenRepo,
+    );
   });
 
   describe("register", () => {
@@ -329,6 +367,125 @@ describe("AuthServiceImpl", () => {
 
       await expect(service.logout("already-revoked-token")).resolves.toBeUndefined();
       expect(refreshTokenRepo.revoke).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("forgotPassword", () => {
+    it("con email inexistente no lanza error y no llama a sendPasswordResetEmail", async () => {
+      vi.mocked(authRepo.findByEmail).mockResolvedValue(null);
+
+      await expect(service.forgotPassword("ghost@example.com")).resolves.toBeUndefined();
+
+      expect(authRepo.findByEmail).toHaveBeenCalledWith("ghost@example.com");
+      expect(passwordResetTokenRepo.invalidateAllForUser).not.toHaveBeenCalled();
+      expect(passwordResetTokenRepo.create).not.toHaveBeenCalled();
+      expect(sendPasswordResetEmail).not.toHaveBeenCalled();
+    });
+
+    it("con email existente invalida tokens previos, crea uno nuevo y envía el email con la URL correcta", async () => {
+      vi.mocked(authRepo.findByEmail).mockResolvedValue(makeUser());
+      vi.mocked(sendPasswordResetEmail).mockResolvedValue({
+        success: true,
+      } as never);
+
+      await service.forgotPassword("test@example.com");
+
+      expect(passwordResetTokenRepo.invalidateAllForUser).toHaveBeenCalledWith("user-1");
+      expect(passwordResetTokenRepo.create).toHaveBeenCalledOnce();
+      const [userId, tokenHash, expiresAt] =
+        vi.mocked(passwordResetTokenRepo.create).mock.calls[0];
+      expect(userId).toBe("user-1");
+      expect(tokenHash).toBeTruthy();
+      expect(expiresAt).toBeInstanceOf(Date);
+      expect(expiresAt.getTime()).toBeGreaterThan(Date.now());
+
+      expect(sendPasswordResetEmail).toHaveBeenCalledOnce();
+      const [to, resetUrl] =
+        vi.mocked(sendPasswordResetEmail).mock.calls[0];
+      expect(to).toBe("test@example.com");
+      const tokenParam = resetUrl.split("?token=")[1];
+      expect(hashRefreshToken(tokenParam)).toBe(tokenHash);
+      expect(resetUrl).toContain("http://localhost:3000/reset?token=");
+    });
+
+    it("si el envío de email falla solo loguea, no lanza error al caller", async () => {
+      const consoleErrorSpy = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+      vi.mocked(authRepo.findByEmail).mockResolvedValue(makeUser());
+      vi.mocked(sendPasswordResetEmail).mockResolvedValue({
+        success: false,
+        error: "Resend rate limited",
+      } as never);
+
+      await expect(service.forgotPassword("test@example.com")).resolves.toBeUndefined();
+
+      expect(consoleErrorSpy).toHaveBeenCalled();
+      consoleErrorSpy.mockRestore();
+    });
+  });
+
+  describe("resetPassword", () => {
+    it("lanza UnauthorizedError si el token no existe", async () => {
+      vi.mocked(passwordResetTokenRepo.findByHash).mockResolvedValue(null);
+
+      let error: UnauthorizedError | undefined;
+      try {
+        await service.resetPassword("nonexistent-token", "NewPassword1");
+      } catch (e) {
+        error = e as UnauthorizedError;
+      }
+
+      expect(error).toBeInstanceOf(UnauthorizedError);
+      expect(error!.message).toBe("Token inválido o expirado");
+      expect(bcrypt.hash).not.toHaveBeenCalled();
+      expect(passwordResetTokenRepo.markAsUsed).not.toHaveBeenCalled();
+    });
+
+    it("lanza UnauthorizedError con el MISMO mensaje si el token ya fue usado", async () => {
+      const record = makePasswordResetToken({ usedAt: new Date("2026-06-01") });
+      vi.mocked(passwordResetTokenRepo.findByHash).mockResolvedValue(record);
+
+      let error: UnauthorizedError | undefined;
+      try {
+        await service.resetPassword("used-token", "NewPassword1");
+      } catch (e) {
+        error = e as UnauthorizedError;
+      }
+
+      expect(error).toBeInstanceOf(UnauthorizedError);
+      expect(error!.message).toBe("Token inválido o expirado");
+    });
+
+    it("lanza UnauthorizedError si el token está expirado", async () => {
+      const record = makePasswordResetToken({
+        expiresAt: new Date("2026-01-01"),
+      });
+      vi.mocked(passwordResetTokenRepo.findByHash).mockResolvedValue(record);
+
+      await expect(
+        service.resetPassword("expired-token", "NewPassword1"),
+      ).rejects.toThrow(UnauthorizedError);
+      expect(bcrypt.hash).not.toHaveBeenCalled();
+      expect(passwordResetTokenRepo.markAsUsed).not.toHaveBeenCalled();
+    });
+
+    it("caso feliz: hashea la nueva password, actualiza el hash, marca el token usado y revoca todas las sesiones", async () => {
+      const record = makePasswordResetToken();
+      vi.mocked(passwordResetTokenRepo.findByHash).mockResolvedValue(record);
+      vi.mocked(bcrypt.hash).mockResolvedValue("$2b$12$newhashedpassword" as never);
+
+      await service.resetPassword("valid-plain-token", "NewPassword1");
+
+      expect(bcrypt.hash).toHaveBeenCalledWith("NewPassword1", 12);
+      expect(authRepo.updatePassword).toHaveBeenCalledWith(
+        "user-1",
+        "$2b$12$newhashedpassword",
+      );
+      expect(passwordResetTokenRepo.markAsUsed).toHaveBeenCalledWith(
+        "reset-token-1",
+      );
+      expect(refreshTokenRepo.revokeAllForUser).toHaveBeenCalledWith("user-1");
     });
   });
 

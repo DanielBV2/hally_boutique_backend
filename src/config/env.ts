@@ -12,6 +12,12 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(1, "JWT_SECRET is required"),
   JWT_EXPIRES_IN: z.string().default("15m"),
   REFRESH_TOKEN_EXPIRES_IN_DAYS: z.coerce.number().positive().default(30),
+  RESEND_API_KEY: z.string().optional(),
+  EMAIL_FROM: z.string().default("onboarding@resend.dev"),
+  PASSWORD_RESET_TOKEN_EXPIRES_IN_MINUTES: z.coerce.number().positive().default(60),
+  FRONTEND_RESET_URL: z
+    .string()
+    .default("http://localhost:3000/api/auth/reset-password-placeholder"),
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
   CORS_ORIGIN: z.string().default("http://localhost:5173"),

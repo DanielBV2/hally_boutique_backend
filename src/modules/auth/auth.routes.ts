@@ -7,16 +7,24 @@ import {
   loginSchema,
   refreshTokenSchema,
   adminUsersQuerySchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
 } from "./auth.schema.js";
 import { AuthController } from "./auth.controller.js";
 import { PrismaAuthRepository } from "./auth.repository.js";
 import { PrismaRefreshTokenRepository } from "./refresh-token.repository.js";
+import { PrismaPasswordResetTokenRepository } from "./password-reset-token.repository.js";
 import { AuthServiceImpl } from "./auth.service.js";
 import { prisma } from "../../config/prisma.js";
 
 const authRepository = new PrismaAuthRepository(prisma);
 const refreshTokenRepository = new PrismaRefreshTokenRepository(prisma);
-const authService = new AuthServiceImpl(authRepository, refreshTokenRepository);
+const passwordResetTokenRepository = new PrismaPasswordResetTokenRepository(prisma);
+const authService = new AuthServiceImpl(
+  authRepository,
+  refreshTokenRepository,
+  passwordResetTokenRepository,
+);
 const authController = new AuthController(authService);
 
 const router = Router();
@@ -43,6 +51,18 @@ router.post(
   "/logout",
   validateSchemaMiddleware(refreshTokenSchema),
   authController.logout,
+);
+
+router.post(
+  "/forgot-password",
+  validateSchemaMiddleware(forgotPasswordSchema),
+  authController.forgotPassword,
+);
+
+router.post(
+  "/reset-password",
+  validateSchemaMiddleware(resetPasswordSchema),
+  authController.resetPassword,
 );
 
 router.get(

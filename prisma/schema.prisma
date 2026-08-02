@@ -67,10 +67,11 @@ model User {
   phone         String?
   role          Role      @default(CUSTOMER)
 
-  addresses     Address[]
-  cart          Cart?
-  orders        Order[]
-  refreshTokens RefreshToken[]
+  addresses            Address[]
+  cart                 Cart?
+  orders               Order[]
+  refreshTokens        RefreshToken[]
+  passwordResetTokens  PasswordResetToken[]
 
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -90,6 +91,19 @@ model RefreshToken {
 
   @@index([userId])
   @@map("refresh_tokens")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@map("password_reset_tokens")
 }
 
 model Address {

@@ -5,6 +5,8 @@ import type {
   LoginInput,
   RefreshTokenInput,
   AdminUsersQuery,
+  ForgotPasswordInput,
+  ResetPasswordInput,
 } from "./auth.schema.js";
 import type { ApiResponse } from "../../shared/types/api-response.js";
 
@@ -46,6 +48,27 @@ export class AuthController {
   logout = async (req: Request, res: Response) => {
     const { refreshToken } = req.body as RefreshTokenInput;
     await this.service.logout(refreshToken);
+
+    const body: ApiResponse<null> = { success: true, data: null };
+    res.status(200).json(body);
+  };
+
+  forgotPassword = async (req: Request, res: Response) => {
+    const { email } = req.body as ForgotPasswordInput;
+    await this.service.forgotPassword(email);
+
+    const body: ApiResponse<{ message: string }> = {
+      success: true,
+      data: {
+        message: "Si el correo existe, recibirás un enlace de recuperación",
+      },
+    };
+    res.status(200).json(body);
+  };
+
+  resetPassword = async (req: Request, res: Response) => {
+    const { token, newPassword } = req.body as ResetPasswordInput;
+    await this.service.resetPassword(token, newPassword);
 
     const body: ApiResponse<null> = { success: true, data: null };
     res.status(200).json(body);

@@ -2,6 +2,7 @@ import bcrypt from "bcrypt";
 import jsonwebtoken from "jsonwebtoken";
 import type { AuthRepository, AuthFilters, AuthPagination } from "./auth.repository.js";
 import type { RefreshTokenRepository } from "./refresh-token.repository.js";
+import type { PasswordResetTokenRepository } from "./password-reset-token.repository.js";
 import type {
   AuthResponseDTO,
   RefreshResponseDTO,
@@ -19,17 +20,21 @@ import {
   generateRefreshToken,
   hashRefreshToken,
 } from "../../shared/utils/refreshToken.js";
+import { sendPasswordResetEmail } from "../../shared/utils/emailClient.js";
 import type { Role } from "@prisma/client";
 
 const SALT_ROUNDS = 12;
 const INVALID_SESSION_MESSAGE =
   "Sesión inválida, por favor inicia sesión de nuevo";
+const INVALID_RESET_TOKEN_MESSAGE = "Token inválido o expirado";
 
 export interface AuthService {
   register(data: RegisterInput): Promise<AuthResponseDTO>;
   login(data: LoginInput): Promise<AuthResponseDTO>;
   refresh(refreshTokenPlain: string): Promise<RefreshResponseDTO>;
   logout(refreshTokenPlain: string): Promise<void>;
+  forgotPassword(email: string): Promise<void>;
+  resetPassword(token: string, newPassword: string): Promise<void>;
   getProfile(userId: string): Promise<UserProfileDTO>;
   listUsersAdmin(
     filters: AuthFilters,
@@ -94,11 +99,18 @@ export class AuthServiceImpl implements AuthService {
   constructor(
     private readonly repository: AuthRepository,
     private readonly refreshTokenRepository: RefreshTokenRepository,
+    private readonly passwordResetTokenRepository: PasswordResetTokenRepository,
   ) {}
 
   private refreshTokenExpiresAt(): Date {
     return new Date(
       Date.now() + env.REFRESH_TOKEN_EXPIRES_IN_DAYS * 24 * 60 * 60 * 1000,
+    );
+  }
+
+  private passwordResetTokenExpiresAt(): Date {
+    return new Date(
+      Date.now() + env.PASSWORD_RESET_TOKEN_EXPIRES_IN_MINUTES * 60 * 1000,
     );
   }
 
@@ -217,6 +229,53 @@ export class AuthServiceImpl implements AuthService {
     }
 
     await this.refreshTokenRepository.revoke(record.id);
+  }
+
+  async forgotPassword(email: string): Promise<void> {
+    const user = await this.repository.findByEmail(email);
+    if (!user) {
+      return;
+    }
+
+    await this.passwordResetTokenRepository.invalidateAllForUser(user.id);
+
+    const tokenPlain = generateRefreshToken();
+    await this.passwordResetTokenRepository.create(
+      user.id,
+      hashRefreshToken(tokenPlain),
+      this.passwordResetTokenExpiresAt(),
+    );
+
+    const resetUrl = `${env.FRONTEND_RESET_URL}?token=${tokenPlain}`;
+    const result = await sendPasswordResetEmail(user.email, resetUrl);
+    if (!result.success) {
+      console.error(
+        "Error enviando email de restablecimiento de contraseña:",
+        result.error,
+      );
+    }
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    const tokenHash = hashRefreshToken(token);
+    const record = await this.passwordResetTokenRepository.findByHash(tokenHash);
+
+    if (!record) {
+      throw new UnauthorizedError(INVALID_RESET_TOKEN_MESSAGE);
+    }
+
+    if (record.usedAt !== null) {
+      throw new UnauthorizedError(INVALID_RESET_TOKEN_MESSAGE);
+    }
+
+    if (record.expiresAt < new Date()) {
+      throw new UnauthorizedError(INVALID_RESET_TOKEN_MESSAGE);
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+    await this.repository.updatePassword(record.userId, passwordHash);
+    await this.passwordResetTokenRepository.markAsUsed(record.id);
+    await this.refreshTokenRepository.revokeAllForUser(record.userId);
   }
 
   async getProfile(userId: string): Promise<UserProfileDTO> {

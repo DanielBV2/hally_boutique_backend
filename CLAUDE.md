@@ -121,6 +121,29 @@ PENDIENTE (no bloqueante): investigar por qué prisma migrate dev no
 regenera el cliente automáticamente en este proyecto — requiere
 prisma generate manual después de cada migración, repetido 3+ veces.
 
+## Forgot-password (Resend) — COMPLETADO Y VERIFICADO
+Proveedor: Resend (elegido tras comparar contra SendGrid/Mailgun/Postmark/
+Brevo — mejor tier gratuito, mejor DX, SDK TypeScript nativo). Modo de
+pruebas usa el dominio onboarding@resend.dev de Resend, sin necesitar
+verificar dominio propio todavía.
+
+Flujo probado end-to-end con correo real recibido: forgot-password
+(siempre 200, mensaje genérico, nunca revela si el email existe),
+reset-password (token de un solo uso, expira en 60 min, mismo mensaje de
+error para token inexistente/usado/expirado). Al resetear exitosamente,
+se revocan TODOS los refresh tokens del usuario (cierre de sesión forzado
+en todos los dispositivos) — verificado que un refresh token de antes del
+reset queda invalidado.
+
+PENDIENTE (no bloqueante, para cuando exista dominio propio/producción):
+verificar un dominio propio en Resend para no depender de
+onboarding@resend.dev, y confirmar si esa restricción de sandbox limita
+el envío solo a la cuenta propia (no se llegó a probar ese límite
+específico, ya que el problema real encontrado fue un email mal
+registrado, no una restricción del proveedor).
+
+112/112 tests pasando.
+
 ## Categories (implementado)
 - Mismo patrón de soft delete (isActive) que Product y Variant.
 - Slug generado en el Service a partir de name, con colisión manejada igual
@@ -389,18 +412,25 @@ propensa a bugs sutiles) ya están protegidos.
 [Nota: el conteo anterior en este archivo estaba desactualizado — se
 detectó y corrigió el 01/08/2026]
 
-## Panel de administración — Fase A (gestión de órdenes) COMPLETADA
-GET /orders/admin/all, GET /orders/admin/:id, PATCH /orders/admin/:id/status
-— todas ADMIN-only. Máquina de estados manual: PAID → PROCESSING → SHIPPED
-→ DELIVERED, solo hacia adelante, nunca desde PENDING/CANCELLED/REFUNDED
-(esos los controla el sistema automáticamente vía webhook de pago).
-PENDIENTE: Fase B (catálogo admin) y Fase C (usuarios + métricas).
+## Panel de administración — COMPLETADO (Fases A, B, C)
+- Fase A: gestión de órdenes (listado/detalle sin ownership, progresión
+  manual de estado PAID→PROCESSING→SHIPPED→DELIVERED).
+- Fase B: catálogo admin (productos/categorías incluyendo inactivos).
+- Fase C: listado de usuarios (solo lectura, sin edición de rol por
+  ahora) + dashboard de métricas (totalOrders, totalRevenue desde
+  PAID en adelante, ordersByStatus, totalCustomers, lowStockVariants
+  con LOW_STOCK_THRESHOLD=5).
 
-## Panel de administración — Fase A COMPLETADA Y VERIFICADA
-Probado manualmente end-to-end: listado completo con filtro por status,
-detalle sin restricción de ownership, progresión de estado válida/inválida,
-bloqueo correcto para no-admins (403), y confirmado que el orden de rutas
-(/admin/all antes de /:orderId) no colisiona en Express real.
+Todas las rutas admin siguen el patrón /admin/all o /admin/:id/acción,
+declaradas ANTES de las rutas dinámicas :id/:slug para evitar colisión
+de rutas en Express (lección aprendida en Fase A de orders).
+
+105/105 tests pasando. Probado manualmente end-to-end.
+
+PENDIENTE consciente (no bloqueante): edición/eliminación de usuarios
+desde admin (cambio de rol, desactivación de cuenta) — decisión de
+diseño que merece su propio análisis de seguridad antes de implementar,
+no se resolvió aquí a propósito.
 
 ## Estado actual del proyecto (actualizado)
 - [x] Schema de Prisma completo y migrado
