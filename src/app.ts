@@ -2,7 +2,7 @@ import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import express from "express";
 import cors from "cors";
-import { env } from "./config/env.js";
+import { env, corsOrigins } from "./config/env.js";
 import { errorHandler } from "./middlewares/errorHandler.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
 import { productRoutes } from "./modules/products/product.routes.js";
@@ -18,7 +18,7 @@ const __dirname = dirname(__filename);
 
 const app = express();
 
-app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }));
+app.use(cors({ origin: corsOrigins, credentials: true }));
 app.use(express.json({ limit: "10kb" }));
 
 app.get("/health", (_req, res) => {

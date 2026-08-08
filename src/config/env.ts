@@ -51,3 +51,5 @@ if (!parsed.success) {
 }
 
 export const env: z.infer<typeof envSchema> = parsed.data;
+
+export const corsOrigins = env.CORS_ORIGIN.split(",").map((o) => o.trim());

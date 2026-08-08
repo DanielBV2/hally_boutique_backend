@@ -15,7 +15,7 @@ export class ProductController {
   list = async (req: Request, res: Response) => {
     const query = req.query as unknown as ListProductsQuery;
 
-    const { items, total, page } = await this.service.listProducts(
+    const result = await this.service.listProducts(
       {
         categoryId: query.categoryId,
         search: query.search,
@@ -26,7 +26,14 @@ export class ProductController {
       { sortBy: query.sortBy, sortOrder: query.sortOrder },
     );
 
-    const body: ApiResponse<typeof items> = { success: true, data: items };
+    const body: ApiResponse<typeof result> = {
+      success: true,
+      data: {
+        items: result.items,
+        total: result.total,
+        page: result.page,
+      },
+    };
     res.status(200).json(body);
   };
 

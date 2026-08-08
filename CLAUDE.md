@@ -101,6 +101,25 @@ propiedad completa. body y params sí se pueden reasignar normalmente
 - PENDIENTE (antes de producción real): refresh tokens — hoy solo hay access token
   de larga duración, aceptable para desarrollo pero no ideal para producción.
 
+## Arquitectura de autenticación Frontend-Backend (decisión, a implementar en frontend)
+Patrón BFF (Backend For Frontend): las cookies httpOnly viven en el
+dominio de Next.js, NUNCA en el de Express. El navegador solo habla con
+las Route Handlers de Next.js (server-side), que leen la cookie, extraen
+el token, y llaman a Express server-to-server con Authorization: Bearer
+<token> — exactamente el mismo mecanismo que ya usa authMiddleware hoy,
+sin cambios.
+
+Flujo: browser → Next.js Route Handler (lee cookie httpOnly) → fetch
+server-to-server → Express API (Bearer token, sin cambios) → respuesta →
+Next.js setea/actualiza la cookie httpOnly → responde al browser.
+
+Ventaja: las peticiones autenticadas nunca cruzan CORS del navegador
+(son servidor-a-servidor). CORS en Express solo importa para endpoints
+públicos que el navegador podría llamar directamente (catálogo).
+
+Express/authMiddleware NO requieren ningún cambio — siguen esperando
+Bearer token exactamente como siempre.
+
 ## Refresh Tokens — COMPLETADO Y VERIFICADO
 Access token JWT reducido a 15 minutos de vida (antes 7 días). Refresh
 token opaco (crypto random, 40 bytes), hasheado con SHA256 en DB, nunca
