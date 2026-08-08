@@ -16,9 +16,15 @@ export class OrderController {
     const query = req.query as unknown as ListOrdersQuery;
     const result = await this.service.listMyOrders(req.user!.id, query);
 
-    const body: ApiResponse<typeof result.items> = {
+    const data = {
+      items: result.items,
+      total: result.total,
+      page: query.page,
+      limit: query.limit,
+    };
+    const body: ApiResponse<typeof data> = {
       success: true,
-      data: result.items,
+      data,
     };
     res.status(200).json(body);
   };
