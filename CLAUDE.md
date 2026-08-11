@@ -233,8 +233,45 @@ Bugs de formato de la API de Envia.com resueltos:
   de pruebas, confirmado directamente con ellos. En producción con
   llaves reales, los montos reflejarán tarifas reales.
 
-PENDIENTE: remover el logging temporal [DEBUG Envia] de shippingClient.ts
-que se agregó para diagnosticar estos bugs (ya cumplió su propósito).
+## Shipping (Envia.com) — Errores de cotización visibles (mejora #10) — COMPLETADO
+getShippingRate tragaba los errores en silencio (`catch { return []; }`): si
+Envia.com fallaba (timeout, 5xx, respuesta sin datos), el checkout caía al
+estimado estático sin dejar NINGÚN rastro de qué pasó — parecía que la
+cotización real "simplemente no existía".
+
+- El logging temporal `[DEBUG Envia]` ya había sido removido (la nota
+  PENDIENTE anterior estaba obsoleta).
+- Ahora `getShippingRate` loguea `console.warn` con contexto (carrier +
+  motivo) tanto en fallo de red/timeout como en respuesta no-OK sin datos,
+  y SIGUE degradando a `[]` (el estimado estático sigue funcionando como
+  fallback). El admin/desarrollador ve en los logs por qué se usó el
+  estimado en vez de tarifas reales.
+- 2 tests nuevos: fallo HTTP 500 y fallo de red, ambos verifican el warning
+  con el carrier y el retorno `[]`.
+
+148/148 tests pasando, typecheck limpio.
+
+## Cart — carreras de read-then-write eliminadas (mejora #11) — COMPLETADO
+Dos métodos del CartRepository hacían read-then-write (leer y luego
+decidir en base a lo leído), una condición de carrera clásica: con dos
+peticiones concurrentes para el mismo usuario/variante, ambas podían leer
+"no existe" y disparar un CREATE duplicado → violación de constraint único
+(500). Reemplazados por `upsert` nativo de Prisma (atómico en la DB):
+
+- `findOrCreateByUserId(userId, tx?)`: antes `findUnique` + `create`;
+  ahora `prisma.cart.upsert({ where: { userId }, update: {}, create: ... })`
+  (userId es `@unique`). Sigue aceptando `tx?` para el webhook de pago.
+- `upsertItem(cartId, variantId, quantity)`: antes `findUnique` +
+  `update`/`create`; ahora `prisma.cartItem.upsert({ where: {
+  cartId_variantId }, update: { quantity: { increment: quantity } },
+  create: ... })` (clave compuesta única `@@unique([cartId, variantId])`).
+  Dos adds concurrentes ya no se pisan: el incremento es atómico.
+
+Mismo comportamiento observable (item existente suma cantidad; nuevo se
+crea con quantity), solo que sin ventana de carrera. Sin cambio de
+interfaces, sin cambios en tests (los services mockean la interfaz).
+
+148/148 tests pasando, typecheck limpio.
 
 ## Shipping (Envia.com) — Fase 2 COMPLETADA Y VERIFICADA
 Generación automática de guía de envío tras confirmación de pago (webhook

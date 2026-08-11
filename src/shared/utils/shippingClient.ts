@@ -39,7 +39,12 @@ export async function getShippingRate(
       { timeoutMs: 8_000, retries: 1 },
     );
     const json = (await response.json()) as { data?: Array<Record<string, unknown>> };
-    if (!response.ok || !json.data) return [];
+    if (!response.ok || !json.data) {
+      console.warn(
+        `[Envia] getShippingRate (carrier "${carrier}") respondió ${response.status} sin datos de tarifa — se usará el estimado estático`,
+      );
+      return [];
+    }
     return json.data.map((r) => ({
       carrier: String(r.carrier),
       service: String(r.service),
@@ -49,6 +54,11 @@ export async function getShippingRate(
       currency: String(r.currency),
     }));
   } catch (err) {
+    console.warn(
+      `[Envia] getShippingRate (carrier "${carrier}") falló: ${
+        err instanceof Error ? err.message : "Unknown error"
+      } — se usará el estimado estático`,
+    );
     return [];
   }
 }

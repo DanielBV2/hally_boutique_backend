@@ -67,14 +67,10 @@ export class PrismaCartRepository implements CartRepository {
 
   async findOrCreateByUserId(userId: string, tx?: Prisma.TransactionClient): Promise<CartWithItems> {
     const client = tx ?? this.prisma;
-    const existing = await client.cart.findUnique({
+    return client.cart.upsert({
       where: { userId },
-      include: includeCartItems,
-    });
-    if (existing) return existing;
-
-    return client.cart.create({
-      data: { userId },
+      update: {},
+      create: { userId },
       include: includeCartItems,
     });
   }
@@ -100,20 +96,11 @@ export class PrismaCartRepository implements CartRepository {
   }
 
   async upsertItem(cartId: string, variantId: string, quantity: number) {
-    const existing = await this.prisma.cartItem.findUnique({
+    await this.prisma.cartItem.upsert({
       where: { cartId_variantId: { cartId, variantId } },
+      update: { quantity: { increment: quantity } },
+      create: { cartId, variantId, quantity },
     });
-
-    if (existing) {
-      await this.prisma.cartItem.update({
-        where: { id: existing.id },
-        data: { quantity: existing.quantity + quantity },
-      });
-    } else {
-      await this.prisma.cartItem.create({
-        data: { cartId, variantId, quantity },
-      });
-    }
   }
 
   async updateItemQuantity(itemId: string, quantity: number) {

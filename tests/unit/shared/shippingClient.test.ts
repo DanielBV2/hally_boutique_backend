@@ -48,15 +48,40 @@ describe("getShippingRate", () => {
     ]);
   });
 
-  it("retorna [] si la API responde con error", async () => {
+  it("retorna [] y loguea warning si la API responde con error", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => new Response(JSON.stringify({}), { status: 500 })),
     );
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     const rates = await getShippingRate("coordinadora", {}, {}, []);
 
     expect(rates).toEqual([]);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('getShippingRate (carrier "coordinadora")'),
+    );
+
+    warnSpy.mockRestore();
+  });
+
+  it("retorna [] y loguea warning si la petición falla (red/timeout)", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new TypeError("fetch failed");
+      }),
+    );
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const rates = await getShippingRate("coordinadora", {}, {}, []);
+
+    expect(rates).toEqual([]);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('getShippingRate (carrier "coordinadora") falló'),
+    );
+
+    warnSpy.mockRestore();
   });
 });
 
