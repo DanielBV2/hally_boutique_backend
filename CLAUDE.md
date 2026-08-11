@@ -476,6 +476,51 @@ Cobertura (14 tests nuevos en tests/unit/shared/): timeout con abort,
 reintentos ante 5xx/errores de red, no-reintento de 4xx, agotamiento de
 intentos con HttpRequestError, y mapeo de respuestas de ambos clientes.
 
+## express.static(public/) removido — COMPLETADO
+`src/app.ts` ya no sirve `test-checkout.html` públicamente (antes con
+`app.use(express.static(join(__dirname, "../public")))`). Era una página
+de prueba manual para el checkout de Wompi que quedó expuesta como
+superficie de ataque; cumplió su propósito (TODO marcado en el código).
+
+Cambios:
+- Eliminada la línea de `express.static` + el comentario TODO en app.ts.
+- Eliminados imports/variables que quedaron sin uso (`fileURLToPath`,
+  `dirname`, `join`, `__filename`, `__dirname`).
+- Eliminado el archivo `public/test-checkout.html` (y el directorio
+  `public/`, que solo lo contenía). El frontend real del checkout
+  (Next.js/BFF) construirá el formulario de Wompi por sí mismo; el
+  backend expone los datos vía POST /api/orders/:orderId/checkout.
+
+141/141 tests pasando, typecheck limpio.
+
+## Webhook no bloquea en generación de guía Envia — COMPLETADO
+La generación de la guía de envío ya NO se ejecuta inline dentro del
+webhook de Wompi (antes bloqueaba la respuesta 200 hasta que Envia
+respondiera, con riesgo de que Wompi reintentara 3 veces en 24h).
+
+Implementación: cola de jobs en proceso (`src/shared/utils/jobQueue.ts`),
+una `InMemoryJobQueue` detrás de la interfaz `JobQueue` con API mínima
+(`schedule` fire-and-forget, `drain` para graceful shutdown). El webhook
+APPROVED encola el job `shipping-label:<orderId>` y responde 200 al
+instante; el worker procesa la guía en background con el timeout ya
+existente (8s, 0 reintentos). Si falla, se mantiene el fallback de
+"GENERACIÓN DE GUÍA FALLIDA" para intervención manual.
+
+Inyección: `PaymentServiceImpl` recibe `JobQueue` como 6º parámetro con
+default al singleton compartido `jobQueue`. La interfaz permite cambiar a
+BullMQ/Redis en producción sin tocar los callers.
+
+Deuda técnica consciente: la cola en proceso no sobrevive un reinicio del
+proceso — si el server muere entre el encolado y el procesamiento, la
+guía no se genera y hay que hacerlo manual (mismo fallback actual). Para
+producción real, swap a una cola persistente (BullMQ + Redis) detrás de
+la misma interfaz.
+
+Cobertura: 5 tests nuevos de InMemoryJobQueue (no-bloqueo, FIFO, error no
+detiene la cola, drain) + 1 test en payments que verifica que el webhook
+resuelve ANTES de que la guía termine (job asíncrono) y que tras drain la
+guía se generó y persistió. 147/147 tests pasando, typecheck limpio.
+
 ## Estado actual del proyecto (actualizado)
 - [x] Schema de Prisma completo y migrado
 - [x] Middlewares base

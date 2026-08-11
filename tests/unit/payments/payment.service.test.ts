@@ -39,6 +39,7 @@ import type { OrderRepository } from "../../../src/modules/orders/order.reposito
 import type { VariantStockRepository, TransactionRunner } from "../../../src/modules/payments/payment.service.js";
 import type { CartRepository } from "../../../src/modules/cart/cart.repository.js";
 import type { OrderWithItems } from "../../../src/modules/orders/order.types.js";
+import { InMemoryJobQueue } from "../../../src/shared/utils/jobQueue.js";
 import { NotFoundError, ConflictError, UnauthorizedError } from "../../../src/shared/errors/app-error.js";
 import { generateIntegritySignature, verifyEventChecksum } from "../../../src/shared/utils/wompiSignature.js";
 import { voidWompiTransaction } from "../../../src/shared/utils/wompiClient.js";
@@ -148,6 +149,7 @@ describe("PaymentServiceImpl", () => {
   let variantStockRepo: ReturnType<typeof mockVariantStockRepo>;
   let txRunner: ReturnType<typeof mockTransactionRunner>;
   let cartRepo: ReturnType<typeof mockCartRepo>;
+  let jobQueue: InMemoryJobQueue;
   let service: PaymentServiceImpl;
 
   beforeEach(() => {
@@ -157,7 +159,8 @@ describe("PaymentServiceImpl", () => {
     variantStockRepo = mockVariantStockRepo();
     txRunner = mockTransactionRunner();
     cartRepo = mockCartRepo();
-    service = new PaymentServiceImpl(paymentRepo, orderRepo, variantStockRepo, txRunner, cartRepo);
+    jobQueue = new InMemoryJobQueue();
+    service = new PaymentServiceImpl(paymentRepo, orderRepo, variantStockRepo, txRunner, cartRepo, jobQueue);
   });
 
   describe("createCheckout", () => {
@@ -288,6 +291,7 @@ describe("PaymentServiceImpl", () => {
       });
 
       await service.processWebhookEvent(makeWebhookEvent());
+      await jobQueue.drain();
 
       expect(orderRepo.tryTransitionToPaid).toHaveBeenCalledWith("order-1", expect.anything());
       expect(orderRepo.updateStatus).not.toHaveBeenCalledWith("order-1", "PAID");
@@ -320,6 +324,45 @@ describe("PaymentServiceImpl", () => {
       });
     });
 
+    it("APPROVED no bloquea el webhook en la generación de guía (job asíncrono)", async () => {
+      vi.mocked(verifyEventChecksum).mockReturnValue(true);
+      vi.mocked(paymentRepo.findByProviderReferenceId).mockResolvedValue({
+        id: "pay-1",
+        order: makeOrder({
+          userId: "user-1",
+          shippingCarrier: "coordinadora",
+          shippingService: "express",
+          items: [{ variantId: "v1", quantity: 2, weightGrams: 300 } as any],
+        }),
+      } as any);
+      vi.mocked(variantStockRepo.decrementStockIfAvailable).mockResolvedValue(true);
+      vi.mocked(orderRepo.tryTransitionToPaid).mockResolvedValue(true);
+      vi.mocked(cartRepo.findOrCreateByUserId).mockResolvedValue({ id: "cart-1" } as any);
+
+      let labelCompleted = false;
+      vi.mocked(generateShippingLabel).mockImplementation(async () => {
+        await new Promise((r) => setTimeout(r, 50));
+        labelCompleted = true;
+        return {
+          success: true,
+          trackingNumber: "track-123",
+          labelUrl: "https://envia.com/label/123",
+          trackUrl: "https://envia.com/track/123",
+        };
+      });
+
+      await service.processWebhookEvent(makeWebhookEvent());
+
+      expect(labelCompleted).toBe(false);
+
+      await jobQueue.drain();
+      expect(labelCompleted).toBe(true);
+      expect(orderRepo.updateShippingLabel).toHaveBeenCalledWith("order-1", {
+        shippingTrackingNumber: "track-123",
+        shippingLabelUrl: "https://envia.com/label/123",
+      });
+    });
+
     it("APPROVED + guía fallida → Order sigue en PAID, console.error con GENERACIÓN DE GUÍA FALLIDA", async () => {
       vi.mocked(verifyEventChecksum).mockReturnValue(true);
       vi.mocked(paymentRepo.findByProviderReferenceId).mockResolvedValue({
@@ -342,6 +385,7 @@ describe("PaymentServiceImpl", () => {
       const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
       await service.processWebhookEvent(makeWebhookEvent());
+      await jobQueue.drain();
 
       expect(orderRepo.tryTransitionToPaid).toHaveBeenCalledWith("order-1", expect.anything());
       expect(orderRepo.updateStatus).not.toHaveBeenCalledWith("order-1", "CANCELLED");

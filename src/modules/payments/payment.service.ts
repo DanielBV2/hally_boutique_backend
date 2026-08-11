@@ -10,6 +10,7 @@ import { generateIntegritySignature, verifyEventChecksum } from "../../shared/ut
 import { voidWompiTransaction } from "../../shared/utils/wompiClient.js";
 import { toDepartmentCode } from "../../shared/utils/colombiaDepartmentCodes.js";
 import { extractStreetNumber, generateShippingLabel } from "../../shared/utils/shippingClient.js";
+import { jobQueue, type JobQueue } from "../../shared/utils/jobQueue.js";
 import { buildPackagesFromOrder } from "../orders/order.service.js";
 
 export interface VariantStockRepository {
@@ -33,6 +34,7 @@ export class PaymentServiceImpl implements PaymentService {
     private readonly variantStockRepository: VariantStockRepository,
     private readonly transactionRunner: TransactionRunner,
     private readonly cartRepository: CartRepository,
+    private readonly jobQueue: JobQueue = jobQueue,
   ) {}
 
   async createCheckout(userId: string, orderId: string): Promise<CheckoutParamsDTO> {
@@ -158,49 +160,55 @@ export class PaymentServiceImpl implements PaymentService {
         const cart = await this.cartRepository.findOrCreateByUserId(payment.order.userId);
         await this.cartRepository.clearCart(cart.id);
 
-        if (payment.order.shippingCarrier && payment.order.shippingService) {
-          const origin = {
-            name: env.SHIPPING_ORIGIN_NAME,
-            phone: env.SHIPPING_ORIGIN_PHONE,
-            street: env.SHIPPING_ORIGIN_STREET,
-            number: env.SHIPPING_ORIGIN_NUMBER,
-            city: env.SHIPPING_ORIGIN_CITY,
-            state: toDepartmentCode(env.SHIPPING_ORIGIN_STATE),
-            country: env.SHIPPING_ORIGIN_COUNTRY,
-            postalCode: env.SHIPPING_ORIGIN_POSTALCODE,
-          };
+        const order = payment.order;
+        if (order.shippingCarrier && order.shippingService) {
+          const carrier = order.shippingCarrier;
+          const service = order.shippingService;
 
-          const destination = {
-            name: payment.order.shippingFullName,
-            phone: payment.order.shippingPhone,
-            street: payment.order.shippingLine1,
-            number: extractStreetNumber(payment.order.shippingLine1),
-            city: payment.order.shippingCity,
-            state: toDepartmentCode(payment.order.shippingState),
-            country: payment.order.shippingCountry,
-            postalCode: payment.order.shippingPostalCode ?? "",
-          };
+          this.jobQueue.schedule(`shipping-label:${order.id}`, async () => {
+            const origin = {
+              name: env.SHIPPING_ORIGIN_NAME,
+              phone: env.SHIPPING_ORIGIN_PHONE,
+              street: env.SHIPPING_ORIGIN_STREET,
+              number: env.SHIPPING_ORIGIN_NUMBER,
+              city: env.SHIPPING_ORIGIN_CITY,
+              state: toDepartmentCode(env.SHIPPING_ORIGIN_STATE),
+              country: env.SHIPPING_ORIGIN_COUNTRY,
+              postalCode: env.SHIPPING_ORIGIN_POSTALCODE,
+            };
 
-          const packages = buildPackagesFromOrder(payment.order);
+            const destination = {
+              name: order.shippingFullName,
+              phone: order.shippingPhone,
+              street: order.shippingLine1,
+              number: extractStreetNumber(order.shippingLine1),
+              city: order.shippingCity,
+              state: toDepartmentCode(order.shippingState),
+              country: order.shippingCountry,
+              postalCode: order.shippingPostalCode ?? "",
+            };
 
-          const labelResult = await generateShippingLabel(
-            origin,
-            destination,
-            packages,
-            payment.order.shippingCarrier,
-            payment.order.shippingService,
-          );
+            const packages = buildPackagesFromOrder(order);
 
-          if (labelResult.success) {
-            await this.orderRepository.updateShippingLabel(payment.order.id, {
-              shippingTrackingNumber: labelResult.trackingNumber ?? "",
-              shippingLabelUrl: labelResult.labelUrl ?? "",
-            });
-          } else {
-            console.error(
-              `⚠️ GENERACIÓN DE GUÍA FALLIDA — Order ${payment.order.id}, razón: ${labelResult.error}. Generar manualmente desde el dashboard de Envia.com.`,
+            const labelResult = await generateShippingLabel(
+              origin,
+              destination,
+              packages,
+              carrier,
+              service,
             );
-          }
+
+            if (labelResult.success) {
+              await this.orderRepository.updateShippingLabel(order.id, {
+                shippingTrackingNumber: labelResult.trackingNumber ?? "",
+                shippingLabelUrl: labelResult.labelUrl ?? "",
+              });
+            } else {
+              console.error(
+                `⚠️ GENERACIÓN DE GUÍA FALLIDA — Order ${order.id}, razón: ${labelResult.error}. Generar manualmente desde el dashboard de Envia.com.`,
+              );
+            }
+          });
         }
         break;
       }

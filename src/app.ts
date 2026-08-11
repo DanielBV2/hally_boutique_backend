@@ -1,5 +1,3 @@
-import { fileURLToPath } from "url";
-import { dirname, join } from "path";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
@@ -15,9 +13,6 @@ import { orderRoutes } from "./modules/orders/order.routes.js";
 import { paymentRoutes } from "./modules/payments/payment.routes.js";
 import { metricsRoutes } from "./modules/metrics/metrics.routes.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
 const app = express();
 
 app.use(helmet());
@@ -28,10 +23,6 @@ app.use("/api", apiLimiter);
 app.get("/health", (_req, res) => {
   res.json({ status: "ok" });
 });
-
-// TODO: temporal, solo para servir test-checkout.html durante pruebas de
-// Wompi — remover antes de producción o cuando exista un frontend real.
-app.use(express.static(join(__dirname, "../public")));
 
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
