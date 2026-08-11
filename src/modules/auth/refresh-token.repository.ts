@@ -5,6 +5,10 @@ export interface RefreshTokenRepository {
   findByHash(tokenHash: string): Promise<RefreshToken | null>;
   revoke(id: string, replacedByTokenId?: string): Promise<void>;
   revokeAllForUser(userId: string): Promise<void>;
+  rotate(
+    oldTokenId: string,
+    data: { userId: string; tokenHash: string; expiresAt: Date },
+  ): Promise<RefreshToken>;
 }
 
 export class PrismaRefreshTokenRepository implements RefreshTokenRepository {
@@ -34,6 +38,22 @@ export class PrismaRefreshTokenRepository implements RefreshTokenRepository {
     await this.prisma.refreshToken.updateMany({
       where: { userId, revokedAt: null },
       data: { revokedAt: new Date() },
+    });
+  }
+
+  async rotate(
+    oldTokenId: string,
+    data: { userId: string; tokenHash: string; expiresAt: Date },
+  ): Promise<RefreshToken> {
+    return this.prisma.$transaction(async (tx) => {
+      const newToken = await tx.refreshToken.create({
+        data: { userId: data.userId, tokenHash: data.tokenHash, expiresAt: data.expiresAt },
+      });
+      await tx.refreshToken.update({
+        where: { id: oldTokenId },
+        data: { revokedAt: new Date(), replacedByTokenId: newToken.id },
+      });
+      return newToken;
     });
   }
 }

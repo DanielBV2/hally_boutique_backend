@@ -210,12 +210,11 @@ export class AuthServiceImpl implements AuthService {
     });
 
     const refreshToken = generateRefreshToken();
-    const newRecord = await this.refreshTokenRepository.create(
-      user.id,
-      hashRefreshToken(refreshToken),
-      this.refreshTokenExpiresAt(),
-    );
-    await this.refreshTokenRepository.revoke(record.id, newRecord.id);
+    await this.refreshTokenRepository.rotate(record.id, {
+      userId: user.id,
+      tokenHash: hashRefreshToken(refreshToken),
+      expiresAt: this.refreshTokenExpiresAt(),
+    });
 
     return { accessToken, refreshToken };
   }

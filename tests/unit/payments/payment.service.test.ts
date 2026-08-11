@@ -295,8 +295,8 @@ describe("PaymentServiceImpl", () => {
 
       expect(orderRepo.tryTransitionToPaid).toHaveBeenCalledWith("order-1", expect.anything());
       expect(orderRepo.updateStatus).not.toHaveBeenCalledWith("order-1", "PAID");
-      expect(paymentRepo.updateStatus).toHaveBeenCalledWith("pay-1", "SUCCEEDED");
-      expect(cartRepo.clearCart).toHaveBeenCalledWith("cart-1");
+      expect(paymentRepo.updateStatus).toHaveBeenCalledWith("pay-1", "SUCCEEDED", expect.anything());
+      expect(cartRepo.clearCart).toHaveBeenCalledWith("cart-1", expect.anything());
       expect(generateShippingLabel).toHaveBeenCalledWith(
         expect.objectContaining({
           name: "Hally Boutique",
@@ -389,7 +389,7 @@ describe("PaymentServiceImpl", () => {
 
       expect(orderRepo.tryTransitionToPaid).toHaveBeenCalledWith("order-1", expect.anything());
       expect(orderRepo.updateStatus).not.toHaveBeenCalledWith("order-1", "CANCELLED");
-      expect(paymentRepo.updateStatus).toHaveBeenCalledWith("pay-1", "SUCCEEDED");
+      expect(paymentRepo.updateStatus).toHaveBeenCalledWith("pay-1", "SUCCEEDED", expect.anything());
       expect(orderRepo.updateShippingLabel).not.toHaveBeenCalled();
       expect(consoleSpy).toHaveBeenCalledWith(
         expect.stringContaining("GENERACIÓN DE GUÍA FALLIDA"),

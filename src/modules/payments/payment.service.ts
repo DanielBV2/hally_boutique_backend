@@ -130,6 +130,13 @@ export class PaymentServiceImpl implements PaymentService {
                 throw new Error("INSUFFICIENT_STOCK");
               }
             }
+
+            await this.paymentRepository.updateStatus(payment.id, "SUCCEEDED", tx);
+            const cart = await this.cartRepository.findOrCreateByUserId(
+              payment.order.userId,
+              tx,
+            );
+            await this.cartRepository.clearCart(cart.id, tx);
           });
         } catch {
           if (!allStockAvailable) {
@@ -155,10 +162,6 @@ export class PaymentServiceImpl implements PaymentService {
         if (!claimed) {
           return;
         }
-
-        await this.paymentRepository.updateStatus(payment.id, "SUCCEEDED");
-        const cart = await this.cartRepository.findOrCreateByUserId(payment.order.userId);
-        await this.cartRepository.clearCart(cart.id);
 
         const order = payment.order;
         if (order.shippingCarrier && order.shippingService) {

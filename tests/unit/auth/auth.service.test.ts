@@ -51,6 +51,7 @@ function mockRefreshTokenRepo(): RefreshTokenRepository {
     findByHash: vi.fn(),
     revoke: vi.fn(),
     revokeAllForUser: vi.fn(),
+    rotate: vi.fn(),
   };
 }
 
@@ -317,12 +318,10 @@ describe("AuthServiceImpl", () => {
       expect(refreshTokenRepo.revokeAllForUser).not.toHaveBeenCalled();
     });
 
-    it("caso feliz: emite nuevos tokens y revoca el usado con replacedByTokenId", async () => {
+    it("caso feliz: emite nuevos tokens y rota el usado de forma atómica (rotate)", async () => {
       const record = makeRefreshToken();
       vi.mocked(refreshTokenRepo.findByHash).mockResolvedValue(record);
       vi.mocked(authRepo.findById).mockResolvedValue(makeUser());
-      const newRecord = makeRefreshToken({ id: "token-2" });
-      vi.mocked(refreshTokenRepo.create).mockResolvedValue(newRecord);
 
       const result = await service.refresh("old-plain-token");
 
@@ -331,15 +330,14 @@ describe("AuthServiceImpl", () => {
       expect(typeof result.refreshToken).toBe("string");
       expect(result.refreshToken.length).toBeGreaterThan(0);
 
-      expect(refreshTokenRepo.create).toHaveBeenCalledWith(
-        "user-1",
-        hashRefreshToken(result.refreshToken),
-        expect.any(Date),
-      );
-      expect(refreshTokenRepo.revoke).toHaveBeenCalledWith(
-        "token-1",
-        "token-2",
-      );
+      expect(refreshTokenRepo.create).not.toHaveBeenCalled();
+      expect(refreshTokenRepo.revoke).not.toHaveBeenCalled();
+      expect(refreshTokenRepo.rotate).toHaveBeenCalledOnce();
+      expect(refreshTokenRepo.rotate).toHaveBeenCalledWith("token-1", {
+        userId: "user-1",
+        tokenHash: hashRefreshToken(result.refreshToken),
+        expiresAt: expect.any(Date),
+      });
     });
   });
 

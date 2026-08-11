@@ -33,7 +33,7 @@ export interface CartItemWithVariant {
 }
 
 export interface CartRepository {
-  findOrCreateByUserId(userId: string): Promise<CartWithItems>;
+  findOrCreateByUserId(userId: string, tx?: Prisma.TransactionClient): Promise<CartWithItems>;
   findVariantById(variantId: string): Promise<VariantForCart | null>;
   findItemById(itemId: string): Promise<CartItemWithVariant | null>;
   upsertItem(
@@ -43,7 +43,7 @@ export interface CartRepository {
   ): Promise<void>;
   updateItemQuantity(itemId: string, quantity: number): Promise<void>;
   removeItem(itemId: string): Promise<void>;
-  clearCart(cartId: string): Promise<void>;
+  clearCart(cartId: string, tx?: Prisma.TransactionClient): Promise<void>;
 }
 
 const includeCartItems = {
@@ -65,14 +65,15 @@ const includeCartItems = {
 export class PrismaCartRepository implements CartRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
-  async findOrCreateByUserId(userId: string): Promise<CartWithItems> {
-    const existing = await this.prisma.cart.findUnique({
+  async findOrCreateByUserId(userId: string, tx?: Prisma.TransactionClient): Promise<CartWithItems> {
+    const client = tx ?? this.prisma;
+    const existing = await client.cart.findUnique({
       where: { userId },
       include: includeCartItems,
     });
     if (existing) return existing;
 
-    return this.prisma.cart.create({
+    return client.cart.create({
       data: { userId },
       include: includeCartItems,
     });
@@ -126,7 +127,8 @@ export class PrismaCartRepository implements CartRepository {
     await this.prisma.cartItem.delete({ where: { id: itemId } });
   }
 
-  async clearCart(cartId: string) {
-    await this.prisma.cartItem.deleteMany({ where: { cartId } });
+  async clearCart(cartId: string, tx?: Prisma.TransactionClient) {
+    const client = tx ?? this.prisma;
+    await client.cartItem.deleteMany({ where: { cartId } });
   }
 }

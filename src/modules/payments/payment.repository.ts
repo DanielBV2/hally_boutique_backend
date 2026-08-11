@@ -1,4 +1,4 @@
-import type { PrismaClient, Payment, PaymentStatus, Order, OrderItem } from "@prisma/client";
+import type { PrismaClient, Prisma, Payment, PaymentStatus, Order, OrderItem } from "@prisma/client";
 
 type OrderWithItems = Order & { items: OrderItem[] };
 
@@ -11,7 +11,7 @@ export interface PaymentRepository {
     amount: number;
     currency: string;
   }): Promise<Payment>;
-  updateStatus(id: string, status: PaymentStatus): Promise<Payment>;
+  updateStatus(id: string, status: PaymentStatus, tx?: Prisma.TransactionClient): Promise<Payment>;
   updateProviderTransactionId(id: string, providerTransactionId: string): Promise<Payment>;
 }
 
@@ -53,8 +53,9 @@ export class PrismaPaymentRepository implements PaymentRepository {
     });
   }
 
-  async updateStatus(id: string, status: PaymentStatus) {
-    return this.prisma.payment.update({
+  async updateStatus(id: string, status: PaymentStatus, tx?: Prisma.TransactionClient) {
+    const client = tx ?? this.prisma;
+    return client.payment.update({
       where: { id },
       data: { status },
     });

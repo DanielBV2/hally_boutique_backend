@@ -521,6 +521,41 @@ detiene la cola, drain) + 1 test en payments que verifica que el webhook
 resuelve ANTES de que la guía termine (job asíncrono) y que tras drain la
 guía se generó y persistió. 147/147 tests pasando, typecheck limpio.
 
+## Transacciones incompletas (webhook y rotación de refresh) — COMPLETADO
+Dos puntos donde la atomicidad quedaba partida entre dos operaciones y un
+proceso muerto a mitad de camino dejaba estados inconsistentes:
+
+1. **Webhook APPROVED de Wompi**: `updateStatus(Payment SUCCEEDED)` y el
+   vaciado del carrito (`clearCart`) quedaban FUERA de la `$transaction`
+   que ya protegía Order→PAID + descuento de stock. Si el proceso moría
+   entre la transacción y esas llamadas, la orden quedaba PAID con el
+   pago aún PENDING y el carrito sin vaciar.
+   - Ahora `tryTransitionToPaid` → decremento de stock → Payment
+     SUCCEEDED → findOrCreate del carrito → clearCart ocurren DENTRO de
+     la misma `runTransaction` (con `tx` pasado a cada repo).
+   - `PaymentRepository.updateStatus(id, status, tx?)` y
+     `CartRepository.findOrCreateByUserId(userId, tx?)` /
+     `clearCart(cartId, tx?)` ahora aceptan `Prisma.TransactionClient`
+     opcional (`client = tx ?? this.prisma`), mismo patrón que ya tenía
+     `OrderRepository`.
+   - El camino de stock insuficiente (CANCELLED + void + REFUNDED/FAILED)
+     sigue fuera de la transacción a propósito: es el rollback posterior a
+     un fallo, no necesita ser atómico con el intento fallido.
+
+2. **Rotación de refresh tokens**: `create` del token nuevo y `revoke` del
+   usado eran dos queries separadas en `auth.service.ts`. Si el proceso
+   moría entre ambas, el token viejo quedaba válido (rotación rota, dos
+   tokens vivos) o el nuevo se creaba sin revocar el anterior.
+   - Nuevo método `RefreshTokenRepository.rotate(oldTokenId, data)` que
+     ejecuta `prisma.$transaction`: crea el token nuevo y revoca el viejo
+     con `replacedByTokenId` en una sola transacción atómica.
+   - `AuthServiceImpl.refresh` ya no llama a `create`+`revoke` por
+     separado — usa `rotate`. Los tests verifican que `create`/`revoke`
+     ya no se invocan y que `rotate` recibe el hash y la expiración
+     correctos.
+
+147/147 tests pasando, typecheck limpio.
+
 ## Estado actual del proyecto (actualizado)
 - [x] Schema de Prisma completo y migrado
 - [x] Middlewares base
