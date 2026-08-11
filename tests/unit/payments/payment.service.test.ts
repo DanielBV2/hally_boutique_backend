@@ -61,6 +61,7 @@ function mockOrderRepo(): OrderRepository {
     findByIdWithItems: vi.fn(),
     createWithItems: vi.fn(),
     updateStatus: vi.fn(),
+    tryTransitionToPaid: vi.fn(),
     updateShippingLabel: vi.fn(),
     updateShippingAndTotal: vi.fn(),
   };
@@ -241,6 +242,30 @@ describe("PaymentServiceImpl", () => {
       expect(paymentRepo.updateStatus).not.toHaveBeenCalled();
     });
 
+    it("APPROVED duplicado (claim ya ganado por otro webhook) → NO descuenta stock ni marca SUCCEEDED", async () => {
+      vi.mocked(verifyEventChecksum).mockReturnValue(true);
+      vi.mocked(paymentRepo.findByProviderReferenceId).mockResolvedValue({
+        id: "pay-1",
+        order: makeOrder({
+          userId: "user-1",
+          shippingCarrier: "coordinadora",
+          shippingService: "express",
+          items: [{ variantId: "v1", quantity: 2, weightGrams: 300 } as any],
+        }),
+      } as any);
+      vi.mocked(orderRepo.tryTransitionToPaid).mockResolvedValue(false);
+      vi.mocked(variantStockRepo.decrementStockIfAvailable).mockResolvedValue(true);
+
+      await service.processWebhookEvent(makeWebhookEvent());
+
+      expect(orderRepo.tryTransitionToPaid).toHaveBeenCalledWith("order-1", expect.anything());
+      expect(variantStockRepo.decrementStockIfAvailable).not.toHaveBeenCalled();
+      expect(orderRepo.updateStatus).not.toHaveBeenCalled();
+      expect(paymentRepo.updateStatus).not.toHaveBeenCalled();
+      expect(cartRepo.clearCart).not.toHaveBeenCalled();
+      expect(generateShippingLabel).not.toHaveBeenCalled();
+    });
+
     it("APPROVED + stock disponible → Order PAID, Payment SUCCEEDED, clearCart, guía generada", async () => {
       vi.mocked(verifyEventChecksum).mockReturnValue(true);
       vi.mocked(paymentRepo.findByProviderReferenceId).mockResolvedValue({
@@ -253,6 +278,7 @@ describe("PaymentServiceImpl", () => {
         }),
       } as any);
       vi.mocked(variantStockRepo.decrementStockIfAvailable).mockResolvedValue(true);
+      vi.mocked(orderRepo.tryTransitionToPaid).mockResolvedValue(true);
       vi.mocked(cartRepo.findOrCreateByUserId).mockResolvedValue({ id: "cart-1" } as any);
       vi.mocked(generateShippingLabel).mockResolvedValue({
         success: true,
@@ -263,7 +289,8 @@ describe("PaymentServiceImpl", () => {
 
       await service.processWebhookEvent(makeWebhookEvent());
 
-      expect(orderRepo.updateStatus).toHaveBeenCalledWith("order-1", "PAID", expect.anything());
+      expect(orderRepo.tryTransitionToPaid).toHaveBeenCalledWith("order-1", expect.anything());
+      expect(orderRepo.updateStatus).not.toHaveBeenCalledWith("order-1", "PAID");
       expect(paymentRepo.updateStatus).toHaveBeenCalledWith("pay-1", "SUCCEEDED");
       expect(cartRepo.clearCart).toHaveBeenCalledWith("cart-1");
       expect(generateShippingLabel).toHaveBeenCalledWith(
@@ -305,6 +332,7 @@ describe("PaymentServiceImpl", () => {
         }),
       } as any);
       vi.mocked(variantStockRepo.decrementStockIfAvailable).mockResolvedValue(true);
+      vi.mocked(orderRepo.tryTransitionToPaid).mockResolvedValue(true);
       vi.mocked(cartRepo.findOrCreateByUserId).mockResolvedValue({ id: "cart-1" } as any);
       vi.mocked(generateShippingLabel).mockResolvedValue({
         success: false,
@@ -315,7 +343,7 @@ describe("PaymentServiceImpl", () => {
 
       await service.processWebhookEvent(makeWebhookEvent());
 
-      expect(orderRepo.updateStatus).toHaveBeenCalledWith("order-1", "PAID", expect.anything());
+      expect(orderRepo.tryTransitionToPaid).toHaveBeenCalledWith("order-1", expect.anything());
       expect(orderRepo.updateStatus).not.toHaveBeenCalledWith("order-1", "CANCELLED");
       expect(paymentRepo.updateStatus).toHaveBeenCalledWith("pay-1", "SUCCEEDED");
       expect(orderRepo.updateShippingLabel).not.toHaveBeenCalled();
@@ -339,6 +367,7 @@ describe("PaymentServiceImpl", () => {
         }),
       } as any);
       vi.mocked(variantStockRepo.decrementStockIfAvailable).mockResolvedValue(false);
+      vi.mocked(orderRepo.tryTransitionToPaid).mockResolvedValue(true);
       vi.mocked(voidWompiTransaction).mockResolvedValue({ success: true });
 
       await service.processWebhookEvent(makeWebhookEvent());
@@ -358,6 +387,7 @@ describe("PaymentServiceImpl", () => {
         }),
       } as any);
       vi.mocked(variantStockRepo.decrementStockIfAvailable).mockResolvedValue(false);
+      vi.mocked(orderRepo.tryTransitionToPaid).mockResolvedValue(true);
       vi.mocked(voidWompiTransaction).mockResolvedValue({ success: false, error: "void failed" });
 
       const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});

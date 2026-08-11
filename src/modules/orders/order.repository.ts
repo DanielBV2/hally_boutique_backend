@@ -20,6 +20,13 @@ export interface OrderRepository {
   findByIdAdmin(id: string): Promise<AdminOrderWithUser | null>;
   createWithItems(data: CreateOrderData): Promise<OrderWithItems>;
   updateStatus(orderId: string, status: OrderStatus, tx?: Prisma.TransactionClient): Promise<void>;
+  /**
+   * Transición atómica PENDING → PAID (compare-and-swap). Solo la transacción
+   * que logre el UPDATE condicional devuelve true; las concurrentes reciben
+   * false y no deben descontar stock ni marcar el pago como SUCCEEDED.
+   * Evita el doble descuento cuando Wompi entrega webhooks duplicados.
+   */
+  tryTransitionToPaid(orderId: string, tx?: Prisma.TransactionClient): Promise<boolean>;
   updateShippingLabel(
     orderId: string,
     data: {
@@ -156,6 +163,15 @@ export class PrismaOrderRepository implements OrderRepository {
       where: { id: orderId },
       data: { status },
     });
+  }
+
+  async tryTransitionToPaid(orderId: string, tx?: Prisma.TransactionClient): Promise<boolean> {
+    const client = tx ?? this.prisma;
+    const { count } = await client.order.updateMany({
+      where: { id: orderId, status: "PENDING" },
+      data: { status: "PAID" },
+    });
+    return count > 0;
   }
 
   async updateShippingLabel(

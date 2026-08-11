@@ -105,9 +105,18 @@ export class PaymentServiceImpl implements PaymentService {
     switch (transaction.status) {
       case "APPROVED": {
         let allStockAvailable = true;
+        let claimed = false;
 
         try {
           await this.transactionRunner.runTransaction(async (tx) => {
+            claimed = await this.orderRepository.tryTransitionToPaid(
+              payment.order.id,
+              tx,
+            );
+            if (!claimed) {
+              return;
+            }
+
             for (const item of payment.order.items) {
               const success = await this.variantStockRepository.decrementStockIfAvailable(
                 item.variantId,
@@ -119,8 +128,6 @@ export class PaymentServiceImpl implements PaymentService {
                 throw new Error("INSUFFICIENT_STOCK");
               }
             }
-
-            await this.orderRepository.updateStatus(payment.order.id, "PAID", tx);
           });
         } catch {
           if (!allStockAvailable) {
@@ -140,6 +147,10 @@ export class PaymentServiceImpl implements PaymentService {
               );
             }
           }
+          return;
+        }
+
+        if (!claimed) {
           return;
         }
 
