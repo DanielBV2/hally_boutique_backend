@@ -1,3 +1,5 @@
+import { fetchWithRetry } from "./httpClient.js";
+
 export function extractStreetNumber(line1: string): string {
   const match = line1.match(/\d+/);
   return match ? match[0] : "S/N";
@@ -19,19 +21,23 @@ export async function getShippingRate(
   packages: object[],
 ): Promise<ShippingRateOption[]> {
   try {
-    const response = await fetch(`${process.env.ENVIA_BASE_URL}/ship/rate/`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.ENVIA_TOKEN}`,
-        "Content-Type": "application/json",
+    const response = await fetchWithRetry(
+      `${process.env.ENVIA_BASE_URL}/ship/rate/`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.ENVIA_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          origin,
+          destination,
+          packages,
+          shipment: { type: 1, carrier },
+        }),
       },
-      body: JSON.stringify({
-        origin,
-        destination,
-        packages,
-        shipment: { type: 1, carrier },
-      }),
-    });
+      { timeoutMs: 8_000, retries: 1 },
+    );
     const json = (await response.json()) as { data?: Array<Record<string, unknown>> };
     if (!response.ok || !json.data) return [];
     return json.data.map((r) => ({
@@ -63,24 +69,31 @@ export async function generateShippingLabel(
   service: string,
 ): Promise<ShippingLabelResult> {
   try {
-    const response = await fetch(`${process.env.ENVIA_BASE_URL}/ship/generate/`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.ENVIA_TOKEN}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        origin,
-        destination,
-        packages,
-        shipment: { type: 1, carrier, service },
-        settings: {
-          printFormat: "PDF",
-          printSize: "STOCK_4X6",
-          currency: "COP",
+    const response = await fetchWithRetry(
+      `${process.env.ENVIA_BASE_URL}/ship/generate/`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.ENVIA_TOKEN}`,
+          "Content-Type": "application/json",
         },
-      }),
-    });
+        body: JSON.stringify({
+          origin,
+          destination,
+          packages,
+          shipment: { type: 1, carrier, service },
+          settings: {
+            printFormat: "PDF",
+            printSize: "STOCK_4X6",
+            currency: "COP",
+          },
+        }),
+      },
+      // Se ejecuta dentro del webhook de pago, que no puede esperar demasiado:
+      // un solo intento, sin reintentos. Si falla, el flujo ya tiene el fallback
+      // de "generación de guía fallida" para intervención manual.
+      { timeoutMs: 8_000, retries: 0 },
+    );
     const json = (await response.json()) as {
       meta?: string;
       data?: Array<Record<string, unknown>>;

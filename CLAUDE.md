@@ -451,6 +451,31 @@ desde admin (cambio de rol, desactivación de cuenta) — decisión de
 diseño que merece su propio análisis de seguridad antes de implementar,
 no se resolvió aquí a propósito.
 
+## HTTP client compartido (timeout + retry) — COMPLETADO Y VERIFICADO
+Todas las llamadas salientes a proveedores externos (Wompi, Envia.com)
+usan `fetchWithRetry` de `src/shared/utils/httpClient.ts` en lugar de
+`fetch` crudo. Todo el tráfico externo pasa por este helper (verificado
+con grep: el único `await fetch(` restante está dentro del helper).
+
+Comportamiento:
+- Timeout por petición via AbortController (default 10s, configurable).
+- Reintenta únicamente errores transitorios: fallos de red/timeout y
+  respuestas 5xx, con backoff exponencial (baseDelayMs * 2^attempt).
+- Los 4xx son deterministas: se devuelven tal cual, sin reintentar.
+- Si agota los intentos sin obtener respuesta, lanza `HttpRequestError`.
+- No introduce comentarios/emojis: solo lógica.
+
+Configuración usada por cada cliente:
+- Wompi `voidWompiTransaction`: timeout 10s, 2 reintentos (3 intentos).
+- Envia `getShippingRate`: timeout 8s, 1 reintento (2 intentos).
+- Envia `generateShippingLabel`: timeout 8s, 0 reintentos — corre dentro
+  del webhook de pago, que no puede esperar demasiado; si falla ya existe
+  el fallback de "generación de guía fallida" para intervención manual.
+
+Cobertura (14 tests nuevos en tests/unit/shared/): timeout con abort,
+reintentos ante 5xx/errores de red, no-reintento de 4xx, agotamiento de
+intentos con HttpRequestError, y mapeo de respuestas de ambos clientes.
+
 ## Estado actual del proyecto (actualizado)
 - [x] Schema de Prisma completo y migrado
 - [x] Middlewares base
