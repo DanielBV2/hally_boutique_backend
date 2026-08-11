@@ -2,8 +2,10 @@ import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
 import { env, corsOrigins } from "./config/env.js";
 import { errorHandler } from "./middlewares/errorHandler.js";
+import { apiLimiter } from "./middlewares/rateLimiter.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
 import { productRoutes } from "./modules/products/product.routes.js";
 import { categoryRoutes } from "./modules/categories/category.routes.js";
@@ -18,8 +20,10 @@ const __dirname = dirname(__filename);
 
 const app = express();
 
+app.use(helmet());
 app.use(cors({ origin: corsOrigins, credentials: true }));
 app.use(express.json({ limit: "10kb" }));
+app.use("/api", apiLimiter);
 
 app.get("/health", (_req, res) => {
   res.json({ status: "ok" });
