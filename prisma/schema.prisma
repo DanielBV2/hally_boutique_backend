@@ -31,6 +31,15 @@ enum OrderStatus {
   REFUNDED
 }
 
+// Estado de la guía de envío (generada vía Envia.com tras el pago).
+// La generación ocurre en background (job queue); un fallo se persiste
+// para intervención manual, no solo en logs.
+enum ShippingStatus {
+  PENDING         // aún no se intenta generar la guía
+  LABEL_GENERATED // guía creada exitosamente
+  LABEL_FAILED    // falló la generación — requiere intervención manual
+}
+
 enum PaymentStatus {
   PENDING
   SUCCEEDED
@@ -261,6 +270,7 @@ model Order {
   shippingService   String?
   shippingTrackingNumber String?
   shippingLabelUrl  String?
+  shippingStatus    ShippingStatus @default(PENDING)
   total             Decimal       @db.Decimal(10, 2)
   currency          String        @default("COP")
 

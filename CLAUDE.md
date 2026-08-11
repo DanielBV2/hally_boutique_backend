@@ -556,7 +556,29 @@ proceso muerto a mitad de camino dejaba estados inconsistentes:
 
 147/147 tests pasando, typecheck limpio.
 
+## Estado de guía de envío persistente (shippingStatus) — COMPLETADO
+Antes, si la generación de la guía fallaba, solo quedaba un `console.error`
+("GENERACIÓN DE GUÍA FALLIDA") — el estado no sobrevivía al proceso y no
+era visible para el admin. Ahora Order persiste su estado de guía:
+
+- Nuevo enum `ShippingStatus { PENDING, LABEL_GENERATED, LABEL_FAILED }`
+  y campo `Order.shippingStatus` con default `PENDING` (migración
+  `add_shipping_status`, cliente Prisma regenerado manualmente — issue
+  conocido de este proyecto).
+- `OrderRepository.updateShippingLabel` ahora además fija
+  `shippingStatus: LABEL_GENERATED`. Nuevo método
+  `OrderRepository.markShippingLabelFailed(orderId)` fija `LABEL_FAILED`.
+- El job `shipping-label:<orderId>` (cola en proceso) llama a
+  `markShippingLabelFailed` en el fallo, conservando el `console.error`
+  para la intervención manual desde Envia.com.
+- El fallo NO cambia el status de la orden (sigue PAID — el pago ya fue
+  confirmado) ni revierte nada: solo persiste el estado de la guía.
+- Expuesto en `OrderDetailDTO.shippingStatus`.
+
+147/147 tests pasando, typecheck limpio.
+
 ## Estado actual del proyecto (actualizado)
+
 - [x] Schema de Prisma completo y migrado
 - [x] Middlewares base
 - [x] Módulo auth — probado

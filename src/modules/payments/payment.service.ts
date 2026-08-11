@@ -207,6 +207,7 @@ export class PaymentServiceImpl implements PaymentService {
                 shippingLabelUrl: labelResult.labelUrl ?? "",
               });
             } else {
+              await this.orderRepository.markShippingLabelFailed(order.id);
               console.error(
                 `⚠️ GENERACIÓN DE GUÍA FALLIDA — Order ${order.id}, razón: ${labelResult.error}. Generar manualmente desde el dashboard de Envia.com.`,
               );

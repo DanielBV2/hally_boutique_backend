@@ -42,6 +42,7 @@ function mockOrderRepo(): OrderRepository {
     createWithItems: vi.fn(),
     updateStatus: vi.fn(),
     updateShippingLabel: vi.fn(),
+    markShippingLabelFailed: vi.fn(),
     updateShippingAndTotal: vi.fn(),
   };
 }

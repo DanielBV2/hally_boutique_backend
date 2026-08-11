@@ -34,6 +34,7 @@ export interface OrderRepository {
       shippingLabelUrl: string;
     },
   ): Promise<void>;
+  markShippingLabelFailed(orderId: string): Promise<void>;
   updateShippingAndTotal(
     orderId: string,
     data: {
@@ -186,6 +187,16 @@ export class PrismaOrderRepository implements OrderRepository {
       data: {
         shippingTrackingNumber: data.shippingTrackingNumber,
         shippingLabelUrl: data.shippingLabelUrl,
+        shippingStatus: "LABEL_GENERATED",
+      },
+    });
+  }
+
+  async markShippingLabelFailed(orderId: string) {
+    await this.prisma.order.update({
+      where: { id: orderId },
+      data: {
+        shippingStatus: "LABEL_FAILED",
       },
     });
   }

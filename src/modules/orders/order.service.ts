@@ -79,6 +79,7 @@ function toDetailDTO(order: OrderWithItems): OrderDetailDTO {
     shippingService: order.shippingService ?? null,
     shippingTrackingNumber: order.shippingTrackingNumber ?? null,
     shippingLabelUrl: order.shippingLabelUrl ?? null,
+    shippingStatus: order.shippingStatus,
     createdAt: order.createdAt,
   };
 }

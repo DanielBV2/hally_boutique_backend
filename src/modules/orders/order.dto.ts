@@ -39,6 +39,7 @@ export interface OrderDetailDTO {
   shippingService: string | null;
   shippingTrackingNumber: string | null;
   shippingLabelUrl: string | null;
+  shippingStatus: string;
   createdAt: Date;
 }
 

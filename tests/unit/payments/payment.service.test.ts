@@ -64,6 +64,7 @@ function mockOrderRepo(): OrderRepository {
     updateStatus: vi.fn(),
     tryTransitionToPaid: vi.fn(),
     updateShippingLabel: vi.fn(),
+    markShippingLabelFailed: vi.fn(),
     updateShippingAndTotal: vi.fn(),
   };
 }
@@ -297,6 +298,7 @@ describe("PaymentServiceImpl", () => {
       expect(orderRepo.updateStatus).not.toHaveBeenCalledWith("order-1", "PAID");
       expect(paymentRepo.updateStatus).toHaveBeenCalledWith("pay-1", "SUCCEEDED", expect.anything());
       expect(cartRepo.clearCart).toHaveBeenCalledWith("cart-1", expect.anything());
+      expect(orderRepo.markShippingLabelFailed).not.toHaveBeenCalled();
       expect(generateShippingLabel).toHaveBeenCalledWith(
         expect.objectContaining({
           name: "Hally Boutique",
@@ -363,7 +365,7 @@ describe("PaymentServiceImpl", () => {
       });
     });
 
-    it("APPROVED + guía fallida → Order sigue en PAID, console.error con GENERACIÓN DE GUÍA FALLIDA", async () => {
+    it("APPROVED + guía fallida → Order sigue en PAID, shippingStatus LABEL_FAILED, console.error con GENERACIÓN DE GUÍA FALLIDA", async () => {
       vi.mocked(verifyEventChecksum).mockReturnValue(true);
       vi.mocked(paymentRepo.findByProviderReferenceId).mockResolvedValue({
         id: "pay-1",
@@ -391,6 +393,7 @@ describe("PaymentServiceImpl", () => {
       expect(orderRepo.updateStatus).not.toHaveBeenCalledWith("order-1", "CANCELLED");
       expect(paymentRepo.updateStatus).toHaveBeenCalledWith("pay-1", "SUCCEEDED", expect.anything());
       expect(orderRepo.updateShippingLabel).not.toHaveBeenCalled();
+      expect(orderRepo.markShippingLabelFailed).toHaveBeenCalledWith("order-1");
       expect(consoleSpy).toHaveBeenCalledWith(
         expect.stringContaining("GENERACIÓN DE GUÍA FALLIDA"),
       );
