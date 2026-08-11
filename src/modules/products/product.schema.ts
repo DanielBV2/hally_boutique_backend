@@ -5,12 +5,15 @@ export const createProductSchema = z.object({
   description: z.string().min(10).max(5000),
   basePrice: z.number().positive(),
   currency: z.string().default("COP"),
+  weightGrams: z.number().int().positive().default(300),
   categoryId: z.string().uuid(),
 });
 
 export type CreateProductInput = z.infer<typeof createProductSchema>;
 
-export const updateProductSchema = createProductSchema.partial();
+export const updateProductSchema = createProductSchema.partial().extend({
+  weightGrams: z.number().int().positive().optional(),
+});
 
 export type UpdateProductInput = z.infer<typeof updateProductSchema>;
 

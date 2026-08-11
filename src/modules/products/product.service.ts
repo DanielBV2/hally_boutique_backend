@@ -15,6 +15,7 @@ interface CreateProductInput {
   description: string;
   basePrice: number;
   currency: string;
+  weightGrams: number;
   categoryId: string;
 }
 
@@ -23,6 +24,7 @@ interface UpdateProductInput {
   description?: string | undefined;
   basePrice?: number | undefined;
   currency?: string | undefined;
+  weightGrams?: number | undefined;
   categoryId?: string | undefined;
 }
 
@@ -58,7 +60,9 @@ function toListItemDTO(product: ProductWithListRelations): ProductListItemDTO {
     basePrice: Number(product.basePrice),
     currency: product.currency,
     thumbnailUrl: product.images[0]?.url ?? null,
+    secondaryImageUrl: product.images[1]?.url ?? null,
     categoryName: product.category.name,
+    images: product.images,
   };
 }
 
@@ -166,6 +170,7 @@ export class ProductServiceImpl implements ProductService {
     if (data.description !== undefined) updateData.description = data.description;
     if (data.basePrice !== undefined) updateData.basePrice = data.basePrice;
     if (data.currency !== undefined) updateData.currency = data.currency;
+    if (data.weightGrams !== undefined) updateData.weightGrams = data.weightGrams;
     if (data.categoryId !== undefined) updateData.categoryId = data.categoryId;
 
     if (data.name !== undefined) {
@@ -182,6 +187,7 @@ export class ProductServiceImpl implements ProductService {
         description: string;
         basePrice: number;
         currency: string;
+        weightGrams: number;
         categoryId: string;
       }>,
     );

@@ -5,7 +5,9 @@ export interface ProductListItemDTO {
   basePrice: number;
   currency: string;
   thumbnailUrl: string | null;
+  secondaryImageUrl: string | null;
   categoryName: string;
+  images: { id: string; url: string; altText: string | null }[];
 }
 
 export interface ProductDetailDTO {
