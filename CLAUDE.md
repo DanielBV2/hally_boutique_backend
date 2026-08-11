@@ -271,6 +271,20 @@ Mismo comportamiento observable (item existente suma cantidad; nuevo se
 crea con quantity), solo que sin ventana de carrera. Sin cambio de
 interfaces, sin cambios en tests (los services mockean la interfaz).
 
+## Tipos de transacción tipificados (mejora #12) — COMPLETADO
+`TransactionRunner` en `payment.service.ts` usaba `(tx: any)` (con un
+eslint-disable encima) y `VariantStockRepository.decrementStockIfAvailable`
+recibía `tx: unknown`. Ambos quedaron tipados con
+`Prisma.TransactionClient`:
+
+- `runTransaction<T>(fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T>`
+  — ya no hay `any` ni `no-explicit-any` en el flujo de pagos.
+- `decrementStockIfAvailable(variantId, quantity, tx: Prisma.TransactionClient)`
+  — coincide con la firma concreta de `PrismaVariantRepository`.
+- El wiring `{ runTransaction: (fn) => prisma.$transaction(fn) }` sigue
+  typecheckeando sin cambios (Prisma.TransactionClient es el mismo tipo
+  que el cliente que recibe `$transaction`).
+
 148/148 tests pasando, typecheck limpio.
 
 ## Shipping (Envia.com) — Fase 2 COMPLETADA Y VERIFICADA
@@ -613,6 +627,20 @@ era visible para el admin. Ahora Order persiste su estado de guía:
 - Expuesto en `OrderDetailDTO.shippingStatus`.
 
 147/147 tests pasando, typecheck limpio.
+
+## Fix: TDZ en default de JobQueue (shadowing de parámetro) — COMPLETADO
+`PaymentServiceImpl` declaraba `private readonly jobQueue: JobQueue = jobQueue`:
+el parámetro se llama igual que el import, así que el default `= jobQueue` se
+resolvía al PROPIO parámetro (en TDZ mientras evalúa su default) y no al
+singleton importado → `ReferenceError: Cannot access 'jobQueue' before
+initialization` al arrancar el servidor (order.routes.ts instancia el service
+sin el 6º argumento). Los tests no lo detectaban porque siempre inyectaban la
+cola explícitamente.
+
+Fix: alias del import (`import { jobQueue as sharedJobQueue }`) para que el
+default apunte al binding del módulo. Test de regresión nuevo: construye el
+service sin inyectar la cola y verifica que no lance. 149/149 tests pasando,
+typecheck limpio, server boot verificado (levanta en localhost:3000).
 
 ## Estado actual del proyecto (actualizado)
 

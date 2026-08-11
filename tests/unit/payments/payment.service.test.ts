@@ -164,6 +164,19 @@ describe("PaymentServiceImpl", () => {
     service = new PaymentServiceImpl(paymentRepo, orderRepo, variantStockRepo, txRunner, cartRepo, jobQueue);
   });
 
+  it("construye sin inyectar JobQueue (usa el singleton compartido)", () => {
+    expect(
+      () =>
+        new PaymentServiceImpl(
+          paymentRepo,
+          orderRepo,
+          variantStockRepo,
+          txRunner,
+          cartRepo,
+        ),
+    ).not.toThrow();
+  });
+
   describe("createCheckout", () => {
     const userId = "user-1";
     const orderId = "order-1";

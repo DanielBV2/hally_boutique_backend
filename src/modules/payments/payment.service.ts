@@ -1,4 +1,4 @@
-import type { PrismaClient } from "@prisma/client";
+import type { PrismaClient, Prisma } from "@prisma/client";
 import type { CheckoutParamsDTO } from "./payment.dto.js";
 import { wompiWebhookSchema, type WompiWebhookInput } from "./payment.schema.js";
 import type { PaymentRepository } from "./payment.repository.js";
@@ -10,16 +10,19 @@ import { generateIntegritySignature, verifyEventChecksum } from "../../shared/ut
 import { voidWompiTransaction } from "../../shared/utils/wompiClient.js";
 import { toDepartmentCode } from "../../shared/utils/colombiaDepartmentCodes.js";
 import { extractStreetNumber, generateShippingLabel } from "../../shared/utils/shippingClient.js";
-import { jobQueue, type JobQueue } from "../../shared/utils/jobQueue.js";
+import { jobQueue as sharedJobQueue, type JobQueue } from "../../shared/utils/jobQueue.js";
 import { buildPackagesFromOrder } from "../orders/order.service.js";
 
 export interface VariantStockRepository {
-  decrementStockIfAvailable(variantId: string, quantity: number, tx: unknown): Promise<boolean>;
+  decrementStockIfAvailable(
+    variantId: string,
+    quantity: number,
+    tx: Prisma.TransactionClient,
+  ): Promise<boolean>;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export interface TransactionRunner {
-  runTransaction<T>(fn: (tx: any) => Promise<T>): Promise<T>;
+  runTransaction<T>(fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T>;
 }
 
 export interface PaymentService {
@@ -34,7 +37,7 @@ export class PaymentServiceImpl implements PaymentService {
     private readonly variantStockRepository: VariantStockRepository,
     private readonly transactionRunner: TransactionRunner,
     private readonly cartRepository: CartRepository,
-    private readonly jobQueue: JobQueue = jobQueue,
+    private readonly jobQueue: JobQueue = sharedJobQueue,
   ) {}
 
   async createCheckout(userId: string, orderId: string): Promise<CheckoutParamsDTO> {
