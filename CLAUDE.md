@@ -771,6 +771,38 @@ Todos los `console.log/error/warn` dispersos fueron reemplazados por **pino**
   incorrecta → 401; sin header → 401; header sin formato Bearer → 401).
   166/166 tests pasando, typecheck limpio.
 
+## Documentación OpenAPI/Swagger (mejora #19) — COMPLETADO
+- `src/docs/openapi.ts`: documento OpenAPI 3.0.3 completo tipado con
+  `oas30.OpenAPIObject` de `openapi3-ts` (v4 exporta namespaces `oas30`/`oas31`/
+  `oas32`, NO un `OpenAPIObject` en la raíz). Cubre todos los endpoints (auth,
+  products+variants+imágenes, categories, cart, addresses, orders incl. admin,
+  payments webhook, metrics) y `components.schemas` con todos los DTOs.
+- Helpers internos: `successResponse(ref)`, `emptySuccessResponse()` y
+  `errorResponse`; `security` global `bearerAuth` con `security: []` en los
+  públicos (health, listados de catálogo).
+- Rutas (en app.ts, montadas SOLO fuera de producción):
+  - `GET /api/docs` — Swagger UI (swagger-ui-express).
+  - `GET /api/docs.json` — el documento crudo.
+- Notas de compatibilidad OpenAPI 3.0: `exclusiveMinimum` es booleano (la forma
+  numérica es de 3.1), así que `basePrice` usa `exclusiveMinimum: true +
+  minimum: 0`.
+- Verificado en vivo: boot OK, `/api/docs` y `/api/docs.json` responden 200 con
+  el documento válido (todos los paths operativos, sin claves duplicadas).
+  166/166 tests pasando, typecheck limpio.
+
+## .env.example versionable (mejora #20) — COMPLETADO
+- Nuevo `.env.example` con TODAS las variables reales de `src/config/env.ts`
+  (verificado programáticamente: cobertura 1:1, sin faltantes ni extras).
+- Comentarios en español con instrucciones para obtener cada secreto (JWT con
+  `openssl rand -hex 64`, llaves de Wompi sandbox con prefijo `_test_`, Envia.com
+  sandbox, origen de envío) y los defaults razonables (puerto, CORS, TAX_RATE,
+  FREE_SHIPPING_THRESHOLD, carriers).
+- `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET` quedan FUERA a propósito: son
+  opcionales y muertas (Wompi reemplazó a Stripe) — no generan fricción de
+  onboarding.
+- `.env` sigue gitignoreado (verificado) — `.env.example` es la única referencia
+  versionable. Proceso: copiar a `.env` y llenar.
+
 ## Estado actual del proyecto (actualizado)
 
 - [x] Schema de Prisma completo y migrado

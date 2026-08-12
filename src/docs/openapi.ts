@@ -1,4 +1,4 @@
-import type { OpenAPIObject } from "openapi3-ts";
+import type { oas30 } from "openapi3-ts";
 
 function successResponse(ref: string, description = "OK") {
   return {
@@ -45,10 +45,10 @@ const errorResponse = {
   },
 };
 
-const bearerAuth = [{ bearerAuth: [] }];
-const noAuth = [];
+const bearerAuth: oas30.SecurityRequirementObject[] = [{ bearerAuth: [] }];
+const noAuth: oas30.SecurityRequirementObject[] = [];
 
-export const openapiDocument: OpenAPIObject = {
+export const openapiDocument: oas30.OpenAPIObject = {
   openapi: "3.0.3",
   info: {
     title: "HallyBoutique API",
@@ -266,6 +266,22 @@ export const openapiDocument: OpenAPIObject = {
           "400": errorResponse,
         },
       },
+      post: {
+        tags: ["Products"],
+        summary: "Crear producto (ADMIN)",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": { schema: { $ref: "#/components/schemas/CreateProductRequest" } },
+          },
+        },
+        responses: {
+          "201": successResponse("#/components/schemas/ProductDetail", "Producto creado"),
+          "400": errorResponse,
+          "409": errorResponse,
+          "403": errorResponse,
+        },
+      },
     },
 
     "/api/products/{slug}": {
@@ -296,25 +312,6 @@ export const openapiDocument: OpenAPIObject = {
         responses: {
           "200": successResponse("#/components/schemas/ProductListResponse"),
           "401": errorResponse,
-          "403": errorResponse,
-        },
-      },
-    },
-
-    "/api/products": {
-      post: {
-        tags: ["Products"],
-        summary: "Crear producto (ADMIN)",
-        requestBody: {
-          required: true,
-          content: {
-            "application/json": { schema: { $ref: "#/components/schemas/CreateProductRequest" } },
-          },
-        },
-        responses: {
-          "201": successResponse("#/components/schemas/ProductDetail", "Producto creado"),
-          "400": errorResponse,
-          "409": errorResponse,
           "403": errorResponse,
         },
       },
@@ -1059,7 +1056,7 @@ export const openapiDocument: OpenAPIObject = {
         properties: {
           name: { type: "string", minLength: 3, maxLength: 200 },
           description: { type: "string", minLength: 10, maxLength: 5000 },
-          basePrice: { type: "number", exclusiveMinimum: 0 },
+          basePrice: { type: "number", exclusiveMinimum: true, minimum: 0 },
           currency: { type: "string", default: "COP" },
           weightGrams: { type: "number", default: 300 },
           categoryId: { type: "string", format: "uuid" },
@@ -1072,7 +1069,7 @@ export const openapiDocument: OpenAPIObject = {
         properties: {
           name: { type: "string", minLength: 3, maxLength: 200 },
           description: { type: "string", minLength: 10, maxLength: 5000 },
-          basePrice: { type: "number", exclusiveMinimum: 0 },
+          basePrice: { type: "number", exclusiveMinimum: true, minimum: 0 },
           currency: { type: "string" },
           weightGrams: { type: "number" },
           categoryId: { type: "string", format: "uuid" },
