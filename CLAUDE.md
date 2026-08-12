@@ -677,6 +677,23 @@ Se eliminó la interfaz `AuthenticatedUser` y su `declare global` de
 única fuente de verdad para `req.user`. 153/153 tests pasando, typecheck
 limpio.
 
+## Composition root (wiring centralizado, mejora #15) — COMPLETADO
+El wiring de dependencias vivía dentro de cada archivo de rutas, y el peor
+caso era `PaymentServiceImpl` + `PaymentController` instanciados DOS veces
+(en `order.routes.ts` para /checkout y en `payment.routes.ts` para /webhook),
+con sus repositories duplicados también.
+
+Nuevo `src/di/container.ts`: composition root único que crea UNA vez todos
+los repositories, services y controllers (transacciones cableadas a
+`prisma.$transaction`), y exporta `container` con los 9 controllers.
+
+Cada `*.routes.ts` ahora solo importa sus controllers desde el container
+(`const { orderController, paymentController } = container;`) y define
+rutas/middlewares — el wiring desapareció de las rutas. Beneficio extra:
+una sola instancia de cada service (estado compartido, sin duplicados) y
+las rutas quedan declarativas. 153/153 tests pasando, typecheck limpio,
+server boot verificado (localhost:3000).
+
 ## Estado actual del proyecto (actualizado)
 
 - [x] Schema de Prisma completo y migrado

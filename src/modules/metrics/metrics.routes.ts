@@ -1,14 +1,9 @@
 import { Router } from "express";
 import { authMiddleware } from "../../middlewares/authMiddleware.js";
 import { roleMiddleware } from "../../middlewares/roleMiddleware.js";
-import { MetricsController } from "./metrics.controller.js";
-import { MetricsServiceImpl } from "./metrics.service.js";
-import { PrismaMetricsRepository } from "./metrics.repository.js";
-import { prisma } from "../../config/prisma.js";
+import { container } from "../../di/container.js";
 
-const metricsRepository = new PrismaMetricsRepository(prisma);
-const metricsService = new MetricsServiceImpl(metricsRepository);
-const metricsController = new MetricsController(metricsService);
+const { metricsController } = container;
 
 const router = Router();
 

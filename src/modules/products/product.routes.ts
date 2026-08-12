@@ -18,21 +18,9 @@ import {
   productIdParamsSchema,
   variantParamsSchema,
 } from "./variant.schema.js";
-import { ProductController } from "./product.controller.js";
-import { PrismaProductRepository } from "./product.repository.js";
-import { ProductServiceImpl } from "./product.service.js";
-import { PrismaVariantRepository } from "./variant.repository.js";
-import { VariantServiceImpl } from "./variant.service.js";
-import { VariantController } from "./variant.controller.js";
-import { prisma } from "../../config/prisma.js";
+import { container } from "../../di/container.js";
 
-const productRepository = new PrismaProductRepository(prisma);
-const productService = new ProductServiceImpl(productRepository);
-const productController = new ProductController(productService);
-
-const variantRepository = new PrismaVariantRepository(prisma);
-const variantService = new VariantServiceImpl(variantRepository, productRepository);
-const variantController = new VariantController(variantService);
+const { productController, variantController } = container;
 
 const router = Router();
 

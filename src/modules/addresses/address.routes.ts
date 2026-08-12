@@ -6,14 +6,9 @@ import {
   updateAddressSchema,
   addressIdParamsSchema,
 } from "./address.schema.js";
-import { AddressController } from "./address.controller.js";
-import { PrismaAddressRepository } from "./address.repository.js";
-import { AddressServiceImpl } from "./address.service.js";
-import { prisma } from "../../config/prisma.js";
+import { container } from "../../di/container.js";
 
-const addressRepository = new PrismaAddressRepository(prisma);
-const addressService = new AddressServiceImpl(addressRepository);
-const addressController = new AddressController(addressService);
+const { addressController } = container;
 
 const router = Router();
 

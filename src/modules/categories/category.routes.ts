@@ -9,14 +9,9 @@ import {
   categorySlugParamsSchema,
   adminCategoriesQuerySchema,
 } from "./category.schema.js";
-import { CategoryController } from "./category.controller.js";
-import { PrismaCategoryRepository } from "./category.repository.js";
-import { CategoryServiceImpl } from "./category.service.js";
-import { prisma } from "../../config/prisma.js";
+import { container } from "../../di/container.js";
 
-const categoryRepository = new PrismaCategoryRepository(prisma);
-const categoryService = new CategoryServiceImpl(categoryRepository);
-const categoryController = new CategoryController(categoryService);
+const { categoryController } = container;
 
 const router = Router();
 

@@ -11,38 +11,10 @@ import {
   adminOrdersQuerySchema,
   updateOrderStatusSchema,
 } from "./order.schema.js";
-import { OrderController } from "./order.controller.js";
-import { PrismaOrderRepository } from "./order.repository.js";
-import { OrderServiceImpl } from "./order.service.js";
-import { PrismaCartRepository } from "../cart/cart.repository.js";
-import { PrismaAddressRepository } from "../addresses/address.repository.js";
-import { PrismaVariantRepository } from "../products/variant.repository.js";
-import { PrismaPaymentRepository } from "../payments/payment.repository.js";
-import { PaymentServiceImpl } from "../payments/payment.service.js";
-import { PaymentController } from "../payments/payment.controller.js";
-import { prisma } from "../../config/prisma.js";
+import { container } from "../../di/container.js";
 import { createCheckoutParamsSchema } from "../payments/payment.schema.js";
 
-const orderRepository = new PrismaOrderRepository(prisma);
-const cartRepository = new PrismaCartRepository(prisma);
-const addressRepository = new PrismaAddressRepository(prisma);
-const variantRepository = new PrismaVariantRepository(prisma);
-const paymentRepository = new PrismaPaymentRepository(prisma);
-const orderService = new OrderServiceImpl(
-  orderRepository,
-  cartRepository,
-  addressRepository,
-);
-const orderController = new OrderController(orderService);
-
-const paymentService = new PaymentServiceImpl(
-  paymentRepository,
-  orderRepository,
-  variantRepository,
-  { runTransaction: (fn) => prisma.$transaction(fn) },
-  cartRepository,
-);
-const paymentController = new PaymentController(paymentService);
+const { orderController, paymentController } = container;
 
 const router = Router();
 

@@ -6,14 +6,9 @@ import {
   updateCartItemSchema,
   cartItemParamsSchema,
 } from "./cart.schema.js";
-import { CartController } from "./cart.controller.js";
-import { PrismaCartRepository } from "./cart.repository.js";
-import { CartServiceImpl } from "./cart.service.js";
-import { prisma } from "../../config/prisma.js";
+import { container } from "../../di/container.js";
 
-const cartRepository = new PrismaCartRepository(prisma);
-const cartService = new CartServiceImpl(cartRepository);
-const cartController = new CartController(cartService);
+const { cartController } = container;
 
 const router = Router();
 
