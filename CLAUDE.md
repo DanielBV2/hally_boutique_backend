@@ -642,6 +642,26 @@ default apunte al binding del módulo. Test de regresión nuevo: construye el
 service sin inyectar la cola y verifica que no lance. 149/149 tests pasando,
 typecheck limpio, server boot verificado (levanta en localhost:3000).
 
+## Graceful shutdown (mejora #13) — COMPLETADO
+Nuevo `src/shared/utils/gracefulShutdown.ts`: `createGracefulShutdown(targets,
+options)` devuelve un handler de señal con orden estricto:
+
+1. `closeServer()` — deja de aceptar conexiones nuevas y espera las en vuelo
+   (`server.close`).
+2. `drainJobs()` — drena la cola de jobs en proceso (`jobQueue.drain`): las
+   guías de envío pendientes terminan antes de cortar la DB.
+3. `disconnectDb()` — `prisma.$disconnect()` (cierra el pool de pg).
+
+Extras: idempotente (una segunda señal no repite el cierre), timeout de
+fuerza bruta (default 10s, timer `.unref()` para no mantener vivo el proceso)
+→ salida forzada con código 1, y ante error en cualquier fase sale con 1 sin
+seguir con las siguientes. `server.ts` registra `SIGINT`/`SIGTERM` al arrancar.
+
+4 tests nuevos (orden de fases, idempotencia, fallo de fase → exit 1,
+timeout forzado). 153/153 tests pasando, typecheck limpio, server boot
+verificado. Nota: la señal SIGTERM no se probó de forma nativa en Windows
+(las señales son limitadas ahí) — la lógica queda cubierta por unit tests.
+
 ## Estado actual del proyecto (actualizado)
 
 - [x] Schema de Prisma completo y migrado
