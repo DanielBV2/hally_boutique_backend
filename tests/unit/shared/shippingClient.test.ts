@@ -3,6 +3,7 @@ import {
   getShippingRate,
   generateShippingLabel,
 } from "../../../src/shared/utils/shippingClient.js";
+import { logger } from "../../../src/shared/utils/logger.js";
 
 beforeEach(() => {
   process.env.ENVIA_BASE_URL = "https://api-test.envia.com";
@@ -53,12 +54,13 @@ describe("getShippingRate", () => {
       "fetch",
       vi.fn(async () => new Response(JSON.stringify({}), { status: 500 })),
     );
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
 
     const rates = await getShippingRate("coordinadora", {}, {}, []);
 
     expect(rates).toEqual([]);
     expect(warnSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ carrier: "coordinadora", status: 500 }),
       expect.stringContaining('getShippingRate (carrier "coordinadora")'),
     );
 
@@ -72,12 +74,13 @@ describe("getShippingRate", () => {
         throw new TypeError("fetch failed");
       }),
     );
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
 
     const rates = await getShippingRate("coordinadora", {}, {}, []);
 
     expect(rates).toEqual([]);
     expect(warnSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ carrier: "coordinadora" }),
       expect.stringContaining('getShippingRate (carrier "coordinadora") falló'),
     );
 

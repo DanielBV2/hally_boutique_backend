@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from "express";
 import { Prisma } from "@prisma/client";
 import { AppError } from "../shared/errors/app-error.js";
 import type { ApiResponse } from "../shared/types/api-response.js";
+import { logger } from "../shared/utils/logger.js";
 
 interface PrismaErrorMapping {
   statusCode: number;
@@ -72,7 +73,7 @@ export function errorHandler(
     }
   }
 
-  console.error("Unhandled error:", err);
+  logger.error({ err, reqId: _req.id }, "Unhandled error");
 
   const body: ApiResponse<never> = {
     success: false,

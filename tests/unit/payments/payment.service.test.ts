@@ -38,6 +38,7 @@ import type { PaymentRepository } from "../../../src/modules/payments/payment.re
 import type { OrderRepository } from "../../../src/modules/orders/order.repository.js";
 import type { VariantStockRepository, TransactionRunner } from "../../../src/modules/payments/payment.service.js";
 import type { CartRepository } from "../../../src/modules/cart/cart.repository.js";
+import { logger } from "../../../src/shared/utils/logger.js";
 import type { OrderWithItems } from "../../../src/modules/orders/order.types.js";
 import { InMemoryJobQueue } from "../../../src/shared/utils/jobQueue.js";
 import { NotFoundError, ConflictError, UnauthorizedError } from "../../../src/shared/errors/app-error.js";
@@ -378,7 +379,7 @@ describe("PaymentServiceImpl", () => {
       });
     });
 
-    it("APPROVED + guía fallida → Order sigue en PAID, shippingStatus LABEL_FAILED, console.error con GENERACIÓN DE GUÍA FALLIDA", async () => {
+    it("APPROVED + guía fallida → Order sigue en PAID, shippingStatus LABEL_FAILED, logger.error con GENERACIÓN DE GUÍA FALLIDA", async () => {
       vi.mocked(verifyEventChecksum).mockReturnValue(true);
       vi.mocked(paymentRepo.findByProviderReferenceId).mockResolvedValue({
         id: "pay-1",
@@ -397,7 +398,7 @@ describe("PaymentServiceImpl", () => {
         error: "envia.com timeout",
       });
 
-      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
 
       await service.processWebhookEvent(makeWebhookEvent());
       await jobQueue.drain();
@@ -407,14 +408,12 @@ describe("PaymentServiceImpl", () => {
       expect(paymentRepo.updateStatus).toHaveBeenCalledWith("pay-1", "SUCCEEDED", expect.anything());
       expect(orderRepo.updateShippingLabel).not.toHaveBeenCalled();
       expect(orderRepo.markShippingLabelFailed).toHaveBeenCalledWith("order-1");
-      expect(consoleSpy).toHaveBeenCalledWith(
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ orderId: "order-1" }),
         expect.stringContaining("GENERACIÓN DE GUÍA FALLIDA"),
       );
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining("Order order-1"),
-      );
 
-      consoleSpy.mockRestore();
+      errorSpy.mockRestore();
     });
 
     it("APPROVED + sin stock + void exitoso → Payment REFUNDED, Order CANCELLED", async () => {
@@ -437,7 +436,7 @@ describe("PaymentServiceImpl", () => {
       expect(voidWompiTransaction).toHaveBeenCalledWith("txn-123", "prv_test_key");
     });
 
-    it("APPROVED + sin stock + void fallido → Payment FAILED, Order CANCELLED, console.error", async () => {
+    it("APPROVED + sin stock + void fallido → Payment FAILED, Order CANCELLED, logger.error", async () => {
       vi.mocked(verifyEventChecksum).mockReturnValue(true);
       vi.mocked(paymentRepo.findByProviderReferenceId).mockResolvedValue({
         id: "pay-1",
@@ -450,17 +449,22 @@ describe("PaymentServiceImpl", () => {
       vi.mocked(orderRepo.tryTransitionToPaid).mockResolvedValue(true);
       vi.mocked(voidWompiTransaction).mockResolvedValue({ success: false, error: "void failed" });
 
-      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
 
       await service.processWebhookEvent(makeWebhookEvent());
 
       expect(orderRepo.updateStatus).toHaveBeenCalledWith("order-1", "CANCELLED");
       expect(paymentRepo.updateStatus).toHaveBeenCalledWith("pay-1", "FAILED");
-      expect(consoleSpy).toHaveBeenCalledWith(
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          paymentId: "pay-1",
+          orderId: "order-1",
+          reason: "void failed",
+        }),
         expect.stringContaining("REEMBOLSO MANUAL REQUERIDO"),
       );
 
-      consoleSpy.mockRestore();
+      errorSpy.mockRestore();
     });
 
     it("DECLINED → Order CANCELLED, Payment FAILED, sin void", async () => {

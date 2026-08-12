@@ -713,6 +713,37 @@ query (default 1/20 por el schema Zod), `total` del service. La forma de la
 respuesta ya no depende del endpoint que se consuma. 153/153 tests pasando,
 typecheck limpio.
 
+## Logging estructurado + request logging (mejora #17) — COMPLETADO
+Todos los `console.log/error/warn` dispersos fueron reemplazados por **pino**
+(logs JSON estructurados) y se agregó **request logging con request-id**
+(pino-http), con correlación webhook→order.
+
+- `src/shared/utils/logger.ts`: singleton `logger` de pino + `requestLogger`
+  middleware de pino-http. `resolveLogLevel()`: `NODE_ENV=test` → `silent`,
+  `LOG_LEVEL` si se define, default `info`. En `NODE_ENV=development` usa el
+  transport de `pino-pretty` (si `.env` no define NODE_ENV, los logs salen en
+  JSON crudo — igualmente parseable).
+- `requestLogger` asignado en `app.ts` ANTES de cualquier ruta: genera/expone
+  `X-Request-Id` (reutiliza el header entrante si viene del cliente) e incluye
+  `req.id` en cada log de request (método, url, status, responseTime). `/health`
+  se ignora en el autoLogging. Cada respuesta HTTP lleva su `X-Request-Id` para
+  correlación con los logs del servidor.
+- **Correlación webhook→order**: `PaymentService.processWebhookEvent(rawEvent,
+  reqId?)` recibe el `req.id` desde el controller del webhook, y TODOS los logs
+  del procesamiento llevan `{ reqId, transactionId, reference, paymentId,
+  orderId }` — se puede seguir un evento de Wompi desde el request del webhook
+  hasta la orden afectada (APPROVED, stock insuficiente con void, guía fallida,
+  rechazos, desconocido). `errorHandler` loguea con `reqId`.
+- Reemplazados: `server.ts` (boot), `env.ts` (errores de validación), `errorHandler`
+  (unhandled), `shippingClient.ts` (warnings de cotización con carrier/status),
+  `jobQueue.ts` (jobs fallidos con jobId), `auth.service.ts` (fallo de email),
+  `payment.service.ts` (todos los eventos del webhook).
+- Tests: los spies pasaron de `console.*` a `logger.*` (shippingClient, jobQueue,
+  payments, auth, errorHandler). 4 tests nuevos de `resolveLogLevel` + 3 tests de
+  `requestLogger` (generación/preservación del X-Request-Id). Verificado en vivo:
+  boot con JSON estructurado y request log con `req.id` preservado del header.
+  160/160 tests pasando, typecheck limpio.
+
 ## Estado actual del proyecto (actualizado)
 
 - [x] Schema de Prisma completo y migrado

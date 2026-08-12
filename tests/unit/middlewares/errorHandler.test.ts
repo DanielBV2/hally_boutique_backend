@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { Prisma } from "@prisma/client";
 import { errorHandler } from "../../../src/middlewares/errorHandler.js";
 import { NotFoundError } from "../../../src/shared/errors/app-error.js";
+import { logger } from "../../../src/shared/utils/logger.js";
 
 function makeRes() {
   const json = vi.fn();
@@ -95,7 +96,7 @@ describe("errorHandler", () => {
   });
 
   it("código Prisma desconocido (P1000) → 500 INTERNAL_ERROR", () => {
-    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const spy = vi.spyOn(logger, "error").mockImplementation(() => {});
     const err = new Prisma.PrismaClientKnownRequestError("Connection error", {
       code: "P1000",
       clientVersion: "test",
@@ -114,7 +115,7 @@ describe("errorHandler", () => {
   });
 
   it("error genérico → 500 INTERNAL_ERROR y log del error", () => {
-    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const spy = vi.spyOn(logger, "error").mockImplementation(() => {});
     const boom = new Error("boom");
 
     const res = invoke(boom);
@@ -124,7 +125,7 @@ describe("errorHandler", () => {
       success: false,
       error: { code: "INTERNAL_ERROR", message: "Internal server error" },
     });
-    expect(spy).toHaveBeenCalledWith("Unhandled error:", boom);
+    expect(spy).toHaveBeenCalledWith(expect.objectContaining({ err: boom }), "Unhandled error");
 
     spy.mockRestore();
   });

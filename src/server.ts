@@ -3,13 +3,14 @@ import { env } from "./config/env.js";
 import { prisma } from "./config/prisma.js";
 import { jobQueue } from "./shared/utils/jobQueue.js";
 import { createGracefulShutdown } from "./shared/utils/gracefulShutdown.js";
+import { logger } from "./shared/utils/logger.js";
 
 async function main(): Promise<void> {
   await prisma.$connect();
-  console.log("Database connected");
+  logger.info("Database connected");
 
   const server = app.listen(env.PORT, () => {
-    console.log(`Server running on http://localhost:${env.PORT}`);
+    logger.info({ port: env.PORT }, "Server running");
   });
 
   const shutdown = createGracefulShutdown({
@@ -26,6 +27,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err) => {
-  console.error("Failed to start server:", err);
+  logger.error({ err }, "Failed to start server");
   process.exit(1);
 });

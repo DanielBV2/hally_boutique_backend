@@ -11,6 +11,7 @@ import { voidWompiTransaction } from "../../shared/utils/wompiClient.js";
 import { toDepartmentCode } from "../../shared/utils/colombiaDepartmentCodes.js";
 import { extractStreetNumber, generateShippingLabel } from "../../shared/utils/shippingClient.js";
 import { jobQueue as sharedJobQueue, type JobQueue } from "../../shared/utils/jobQueue.js";
+import { logger } from "../../shared/utils/logger.js";
 import { buildPackagesFromOrder } from "../orders/order.service.js";
 
 export interface VariantStockRepository {
@@ -27,7 +28,7 @@ export interface TransactionRunner {
 
 export interface PaymentService {
   createCheckout(userId: string, orderId: string): Promise<CheckoutParamsDTO>;
-  processWebhookEvent(rawEvent: unknown): Promise<void>;
+  processWebhookEvent(rawEvent: unknown, reqId?: string): Promise<void>;
 }
 
 export class PaymentServiceImpl implements PaymentService {
@@ -84,8 +85,8 @@ export class PaymentServiceImpl implements PaymentService {
     };
   }
 
-  async processWebhookEvent(rawEvent: unknown): Promise<void> {
-    const parsed = wompiWebhookSchemaSafeParse(rawEvent);
+  async processWebhookEvent(rawEvent: unknown, reqId?: string): Promise<void> {
+    const parsed = wompiWebhookSchemaSafeParse(rawEvent, reqId);
     if (!parsed) return;
 
     const isValid = verifyEventChecksum(parsed, env.WOMPI_EVENTS_SECRET);
@@ -97,13 +98,29 @@ export class PaymentServiceImpl implements PaymentService {
     const payment = await this.paymentRepository.findByProviderReferenceId(transaction.reference);
 
     if (!payment) {
-      console.warn(`[Payments] Webhook received for unknown reference: ${transaction.reference}`);
+      logger.warn(
+        {
+          reqId,
+          transactionId: transaction.id,
+          reference: transaction.reference,
+        },
+        "[Payments] Webhook received for unknown reference",
+      );
       return;
     }
+
+    const webhookLog = {
+      reqId,
+      transactionId: transaction.id,
+      reference: transaction.reference,
+      paymentId: payment.id,
+      orderId: payment.order.id,
+    };
 
     await this.paymentRepository.updateProviderTransactionId(payment.id, transaction.id);
 
     if (payment.order.status !== "PENDING") {
+      logger.info({ ...webhookLog, orderStatus: payment.order.status }, "[Payments] Webhook ignorado: orden ya procesada");
       return;
     }
 
@@ -152,10 +169,18 @@ export class PaymentServiceImpl implements PaymentService {
 
             if (voidResult.success) {
               await this.paymentRepository.updateStatus(payment.id, "REFUNDED");
+              logger.info(
+                { ...webhookLog },
+                "[Payments] Stock insuficiente: transacción anulada (REFUNDED)",
+              );
             } else {
               await this.paymentRepository.updateStatus(payment.id, "FAILED");
-              console.error(
-                `⚠️ REEMBOLSO MANUAL REQUERIDO — Payment ${payment.id}, Order ${payment.order.id}, razón: ${voidResult.error}`,
+              logger.error(
+                {
+                  ...webhookLog,
+                  reason: voidResult.error,
+                },
+                "REEMBOLSO MANUAL REQUERIDO — Payment, Order. Generar manualmente desde el dashboard de Wompi.",
               );
             }
           }
@@ -165,6 +190,11 @@ export class PaymentServiceImpl implements PaymentService {
         if (!claimed) {
           return;
         }
+
+        logger.info(
+          { ...webhookLog, stockClaimed: true },
+          "[Payments] Pago APPROVED: Order PAID, stock descontado, carrito vaciado",
+        );
 
         const order = payment.order;
         if (order.shippingCarrier && order.shippingService) {
@@ -211,8 +241,12 @@ export class PaymentServiceImpl implements PaymentService {
               });
             } else {
               await this.orderRepository.markShippingLabelFailed(order.id);
-              console.error(
-                `⚠️ GENERACIÓN DE GUÍA FALLIDA — Order ${order.id}, razón: ${labelResult.error}. Generar manualmente desde el dashboard de Envia.com.`,
+              logger.error(
+                {
+                  ...webhookLog,
+                  reason: labelResult.error,
+                },
+                "GENERACIÓN DE GUÍA FALLIDA — Order. Generar manualmente desde el dashboard de Envia.com.",
               );
             }
           });
@@ -225,19 +259,33 @@ export class PaymentServiceImpl implements PaymentService {
       case "ERROR": {
         await this.orderRepository.updateStatus(payment.order.id, "CANCELLED");
         await this.paymentRepository.updateStatus(payment.id, "FAILED");
+        logger.info(
+          { ...webhookLog, paymentStatus: transaction.status },
+          "[Payments] Pago rechazado: Order CANCELLED, Payment FAILED",
+        );
         break;
       }
 
       case "PENDING":
+        logger.info(
+          { ...webhookLog },
+          "[Payments] Pago PENDING: se espera el próximo webhook",
+        );
         break;
     }
   }
 }
 
-function wompiWebhookSchemaSafeParse(raw: unknown): WompiWebhookInput | null {
+function wompiWebhookSchemaSafeParse(
+  raw: unknown,
+  reqId?: string,
+): WompiWebhookInput | null {
   const result = wompiWebhookSchema.safeParse(raw);
   if (!result.success) {
-    console.warn("[Payments] Webhook validation failed:", result.error.flatten());
+    logger.warn(
+      { reqId, errors: result.error.flatten() },
+      "[Payments] Webhook validation failed",
+    );
     return null;
   }
   return result.data;

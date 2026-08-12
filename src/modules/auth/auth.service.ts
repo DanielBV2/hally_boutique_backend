@@ -21,6 +21,7 @@ import {
   hashRefreshToken,
 } from "../../shared/utils/refreshToken.js";
 import { sendPasswordResetEmail } from "../../shared/utils/emailClient.js";
+import { logger } from "../../shared/utils/logger.js";
 import type { Role } from "@prisma/client";
 
 const SALT_ROUNDS = 12;
@@ -248,9 +249,9 @@ export class AuthServiceImpl implements AuthService {
     const resetUrl = `${env.FRONTEND_RESET_URL}?token=${tokenPlain}`;
     const result = await sendPasswordResetEmail(user.email, resetUrl);
     if (!result.success) {
-      console.error(
-        "Error enviando email de restablecimiento de contraseña:",
-        result.error,
+      logger.error(
+        { email: user.email, error: result.error },
+        "Error enviando email de restablecimiento de contraseña",
       );
     }
   }

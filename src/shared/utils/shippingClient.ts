@@ -1,4 +1,5 @@
 import { fetchWithRetry } from "./httpClient.js";
+import { logger } from "./logger.js";
 
 export function extractStreetNumber(line1: string): string {
   const match = line1.match(/\d+/);
@@ -40,7 +41,8 @@ export async function getShippingRate(
     );
     const json = (await response.json()) as { data?: Array<Record<string, unknown>> };
     if (!response.ok || !json.data) {
-      console.warn(
+      logger.warn(
+        { carrier, status: response.status },
         `[Envia] getShippingRate (carrier "${carrier}") respondió ${response.status} sin datos de tarifa — se usará el estimado estático`,
       );
       return [];
@@ -54,10 +56,12 @@ export async function getShippingRate(
       currency: String(r.currency),
     }));
   } catch (err) {
-    console.warn(
-      `[Envia] getShippingRate (carrier "${carrier}") falló: ${
-        err instanceof Error ? err.message : "Unknown error"
-      } — se usará el estimado estático`,
+    logger.warn(
+      {
+        carrier,
+        error: err instanceof Error ? err.message : "Unknown error",
+      },
+      `[Envia] getShippingRate (carrier "${carrier}") falló — se usará el estimado estático`,
     );
     return [];
   }

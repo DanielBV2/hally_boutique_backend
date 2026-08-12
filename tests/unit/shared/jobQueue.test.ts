@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { InMemoryJobQueue, jobQueue } from "../../../src/shared/utils/jobQueue.js";
+import { logger } from "../../../src/shared/utils/logger.js";
 
 describe("InMemoryJobQueue", () => {
   it("schedule no bloquea: el job se procesa en background", async () => {
@@ -33,7 +34,7 @@ describe("InMemoryJobQueue", () => {
 
   it("no deja que un job que falla detenga a los siguientes", async () => {
     const queue = new InMemoryJobQueue();
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
     const ran: string[] = [];
 
     queue.schedule("job-fail", async () => {
@@ -47,8 +48,8 @@ describe("InMemoryJobQueue", () => {
 
     expect(ran).toEqual(["ok"]);
     expect(errorSpy).toHaveBeenCalledWith(
-      "[JobQueue] Job 'job-fail' failed:",
-      expect.any(Error),
+      expect.objectContaining({ jobId: "job-fail" }),
+      "[JobQueue] Job 'job-fail' failed",
     );
     errorSpy.mockRestore();
   });

@@ -1,3 +1,5 @@
+import { logger } from "./logger.js";
+
 export interface JobQueue {
   schedule(id: string, run: () => Promise<void>): void;
   drain(): Promise<void>;
@@ -32,7 +34,7 @@ export class InMemoryJobQueue implements JobQueue {
         try {
           await job.run();
         } catch (err) {
-          console.error(`[JobQueue] Job '${job.id}' failed:`, err);
+          logger.error({ jobId: job.id, err }, `[JobQueue] Job '${job.id}' failed`);
         }
       }
     } finally {

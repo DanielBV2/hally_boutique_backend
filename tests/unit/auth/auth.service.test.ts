@@ -33,6 +33,7 @@ import {
 } from "../../../src/shared/errors/app-error.js";
 import { hashRefreshToken } from "../../../src/shared/utils/refreshToken.js";
 import { sendPasswordResetEmail } from "../../../src/shared/utils/emailClient.js";
+import { logger } from "../../../src/shared/utils/logger.js";
 import bcrypt from "bcrypt";
 
 function mockAuthRepo(): AuthRepository {
@@ -407,8 +408,8 @@ describe("AuthServiceImpl", () => {
     });
 
     it("si el envío de email falla solo loguea, no lanza error al caller", async () => {
-      const consoleErrorSpy = vi
-        .spyOn(console, "error")
+      const loggerErrorSpy = vi
+        .spyOn(logger, "error")
         .mockImplementation(() => {});
       vi.mocked(authRepo.findByEmail).mockResolvedValue(makeUser());
       vi.mocked(sendPasswordResetEmail).mockResolvedValue({
@@ -418,8 +419,8 @@ describe("AuthServiceImpl", () => {
 
       await expect(service.forgotPassword("test@example.com")).resolves.toBeUndefined();
 
-      expect(consoleErrorSpy).toHaveBeenCalled();
-      consoleErrorSpy.mockRestore();
+      expect(loggerErrorSpy).toHaveBeenCalled();
+      loggerErrorSpy.mockRestore();
     });
   });
 

@@ -18,7 +18,7 @@ export class PaymentController {
   };
 
   webhook = async (req: Request, res: Response) => {
-    await this.service.processWebhookEvent(req.body);
+    await this.service.processWebhookEvent(req.body, String(req.id ?? ""));
 
     const body: ApiResponse<null> = {
       success: true,

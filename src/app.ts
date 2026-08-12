@@ -4,6 +4,7 @@ import helmet from "helmet";
 import { env, corsOrigins } from "./config/env.js";
 import { errorHandler } from "./middlewares/errorHandler.js";
 import { apiLimiter } from "./middlewares/rateLimiter.js";
+import { requestLogger } from "./shared/utils/logger.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
 import { productRoutes } from "./modules/products/product.routes.js";
 import { categoryRoutes } from "./modules/categories/category.routes.js";
@@ -15,6 +16,7 @@ import { metricsRoutes } from "./modules/metrics/metrics.routes.js";
 
 const app = express();
 
+app.use(requestLogger);
 app.use(helmet());
 app.use(cors({ origin: corsOrigins, credentials: true }));
 app.use(express.json({ limit: "10kb" }));
