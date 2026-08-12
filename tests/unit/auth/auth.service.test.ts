@@ -43,6 +43,7 @@ function mockAuthRepo(): AuthRepository {
     findByEmail: vi.fn(),
     findById: vi.fn(),
     create: vi.fn(),
+    update: vi.fn(),
     updatePassword: vi.fn(),
     findAllAdmin: vi.fn(),
   };
@@ -508,6 +509,97 @@ describe("AuthServiceImpl", () => {
       vi.mocked(authRepo.findById).mockResolvedValue(null);
 
       await expect(service.getProfile("nonexistent")).rejects.toThrow(NotFoundError);
+    });
+  });
+
+  describe("updateProfile", () => {
+    it("actualiza los campos provistos y devuelve el perfil sin passwordHash", async () => {
+      const user = makeUser();
+      const updated = makeUser({
+        firstName: "María",
+        lastName: "Gómez",
+        phone: "3009876543",
+      });
+      vi.mocked(authRepo.findById).mockResolvedValue(user);
+      vi.mocked(authRepo.update).mockResolvedValue(updated);
+
+      const result = await service.updateProfile("user-1", {
+        firstName: "María",
+        lastName: "Gómez",
+        phone: "3009876543",
+      });
+
+      expect(authRepo.update).toHaveBeenCalledWith("user-1", {
+        firstName: "María",
+        lastName: "Gómez",
+        phone: "3009876543",
+      });
+      expect(authRepo.update).toHaveBeenCalledOnce();
+      expect(result.firstName).toBe("María");
+      expect(result.phone).toBe("3009876543");
+      expect(result).not.toHaveProperty("passwordHash");
+    });
+
+    it("no consulta findByEmail si el email no cambia", async () => {
+      const user = makeUser({ email: "test@example.com" });
+      vi.mocked(authRepo.findById).mockResolvedValue(user);
+      vi.mocked(authRepo.update).mockResolvedValue(user);
+
+      await service.updateProfile("user-1", { firstName: "Juan" });
+
+      expect(authRepo.findByEmail).not.toHaveBeenCalled();
+      expect(authRepo.update).toHaveBeenCalledWith("user-1", {
+        firstName: "Juan",
+      });
+    });
+
+    it("permite actualizar el email propio (mismo id no es conflicto)", async () => {
+      const user = makeUser({ email: "test@example.com" });
+      const updated = makeUser({ email: "nuevo@example.com" });
+      vi.mocked(authRepo.findById).mockResolvedValue(user);
+      vi.mocked(authRepo.findByEmail).mockResolvedValue(user);
+      vi.mocked(authRepo.update).mockResolvedValue(updated);
+
+      const result = await service.updateProfile("user-1", {
+        email: "nuevo@example.com",
+      });
+
+      expect(authRepo.findByEmail).toHaveBeenCalledWith("nuevo@example.com");
+      expect(authRepo.update).toHaveBeenCalledWith("user-1", {
+        email: "nuevo@example.com",
+      });
+      expect(result.email).toBe("nuevo@example.com");
+    });
+
+    it("lanza ConflictError si el email pertenece a otro usuario", async () => {
+      const user = makeUser();
+      const otherUser = makeUser({ id: "user-2", email: "otro@example.com" });
+      vi.mocked(authRepo.findById).mockResolvedValue(user);
+      vi.mocked(authRepo.findByEmail).mockResolvedValue(otherUser);
+
+      await expect(
+        service.updateProfile("user-1", { email: "otro@example.com" }),
+      ).rejects.toThrow(ConflictError);
+      expect(authRepo.update).not.toHaveBeenCalled();
+    });
+
+    it("omite los campos undefined y pasa phone null explícitamente", async () => {
+      const user = makeUser();
+      vi.mocked(authRepo.findById).mockResolvedValue(user);
+      vi.mocked(authRepo.update).mockResolvedValue(makeUser({ phone: null }));
+
+      await service.updateProfile("user-1", { phone: null });
+
+      expect(authRepo.update).toHaveBeenCalledWith("user-1", { phone: null });
+    });
+
+    it("lanza NotFoundError si el usuario no existe", async () => {
+      vi.mocked(authRepo.findById).mockResolvedValue(null);
+
+      await expect(
+        service.updateProfile("nonexistent", { firstName: "X" }),
+      ).rejects.toThrow(NotFoundError);
+      expect(authRepo.update).not.toHaveBeenCalled();
     });
   });
 

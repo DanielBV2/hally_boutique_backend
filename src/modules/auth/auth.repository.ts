@@ -8,6 +8,13 @@ export interface CreateUserData {
   phone?: string;
 }
 
+export interface UpdateUserData {
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string | null;
+}
+
 export interface AuthFilters {
   role?: Role;
 }
@@ -21,6 +28,7 @@ export interface AuthRepository {
   findByEmail(email: string): Promise<User | null>;
   findById(id: string): Promise<User | null>;
   create(data: CreateUserData): Promise<User>;
+  update(userId: string, data: UpdateUserData): Promise<User>;
   updatePassword(userId: string, passwordHash: string): Promise<void>;
   findAllAdmin(
     filters: AuthFilters,
@@ -47,6 +55,13 @@ export class PrismaAuthRepository implements AuthRepository {
     await this.prisma.user.update({
       where: { id: userId },
       data: { passwordHash },
+    });
+  }
+
+  async update(userId: string, data: UpdateUserData): Promise<User> {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data,
     });
   }
 

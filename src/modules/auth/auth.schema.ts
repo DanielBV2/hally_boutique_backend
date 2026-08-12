@@ -14,6 +14,19 @@ export const registerSchema = z.object({
 
 export type RegisterInput = z.infer<typeof registerSchema>;
 
+export const updateProfileSchema = z
+  .object({
+    firstName: z.string().min(2).max(100).optional(),
+    lastName: z.string().min(2).max(100).optional(),
+    email: z.string().email().optional(),
+    phone: z.string().nullable().optional(),
+  })
+  .refine((data) => Object.keys(data).length > 0, {
+    message: "Debes enviar al menos un campo",
+  });
+
+export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
+
 export const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1, "La contraseña es requerida"),

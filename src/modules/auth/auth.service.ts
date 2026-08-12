@@ -10,7 +10,7 @@ import type {
   UserProfileDTO,
   AdminUserListItemDTO,
 } from "./auth.dto.js";
-import type { RegisterInput, LoginInput } from "./auth.schema.js";
+import type { RegisterInput, LoginInput, UpdateProfileInput } from "./auth.schema.js";
 import {
   ConflictError,
   UnauthorizedError,
@@ -38,6 +38,7 @@ export interface AuthService {
   forgotPassword(email: string): Promise<void>;
   resetPassword(token: string, newPassword: string): Promise<void>;
   getProfile(userId: string): Promise<UserProfileDTO>;
+  updateProfile(userId: string, data: UpdateProfileInput): Promise<UserProfileDTO>;
   listUsersAdmin(
     filters: AuthFilters,
     pagination: AuthPagination,
@@ -288,6 +289,32 @@ export class AuthServiceImpl implements AuthService {
     }
 
     return toUserProfileDTO(user);
+  }
+
+  async updateProfile(
+    userId: string,
+    data: UpdateProfileInput,
+  ): Promise<UserProfileDTO> {
+    const user = await this.repository.findById(userId);
+    if (!user) {
+      throw new NotFoundError("User");
+    }
+
+    if (data.email && data.email.toLowerCase() !== user.email.toLowerCase()) {
+      const existing = await this.repository.findByEmail(data.email);
+      if (existing && existing.id !== userId) {
+        throw new ConflictError("El correo ya está registrado");
+      }
+    }
+
+    const updateData: Parameters<AuthRepository["update"]>[1] = {};
+    if (data.firstName !== undefined) updateData.firstName = data.firstName;
+    if (data.lastName !== undefined) updateData.lastName = data.lastName;
+    if (data.email !== undefined) updateData.email = data.email;
+    if (data.phone !== undefined) updateData.phone = data.phone;
+
+    const updated = await this.repository.update(userId, updateData);
+    return toUserProfileDTO(updated);
   }
 
   async listUsersAdmin(

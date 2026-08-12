@@ -14,6 +14,7 @@ import {
   adminUsersQuerySchema,
   forgotPasswordSchema,
   resetPasswordSchema,
+  updateProfileSchema,
 } from "./auth.schema.js";
 import { container } from "../../di/container.js";
 
@@ -69,5 +70,12 @@ router.get(
 );
 
 router.get("/me", authMiddleware, authController.getProfile);
+
+router.patch(
+  "/me",
+  authMiddleware,
+  validateSchemaMiddleware(updateProfileSchema),
+  authController.updateProfile,
+);
 
 export { router as authRoutes };

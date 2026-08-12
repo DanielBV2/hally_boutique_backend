@@ -222,6 +222,25 @@ export const openapiDocument: oas30.OpenAPIObject = {
           "401": errorResponse,
         },
       },
+      patch: {
+        tags: ["Auth"],
+        summary: "Actualizar perfil del usuario autenticado",
+        description:
+          "Actualiza nombre, apellido, email y/o teléfono. El email debe ser único; " +
+          "si ya pertenece a otro usuario se responde 409.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": { schema: { $ref: "#/components/schemas/UpdateProfileRequest" } },
+          },
+        },
+        responses: {
+          "200": successResponse("#/components/schemas/User", "Perfil actualizado"),
+          "400": errorResponse,
+          "401": errorResponse,
+          "409": errorResponse,
+        },
+      },
     },
 
     "/api/auth/admin/all": {
@@ -917,6 +936,17 @@ export const openapiDocument: oas30.OpenAPIObject = {
           newPassword: { type: "string", minLength: 8 },
         },
         required: ["token", "newPassword"],
+      },
+
+      UpdateProfileRequest: {
+        type: "object",
+        properties: {
+          firstName: { type: "string", minLength: 2, maxLength: 100 },
+          lastName: { type: "string", minLength: 2, maxLength: 100 },
+          email: { type: "string", format: "email" },
+          phone: { type: "string", nullable: true },
+        },
+        minProperties: 1,
       },
 
       User: {

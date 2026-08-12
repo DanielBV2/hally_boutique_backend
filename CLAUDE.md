@@ -101,6 +101,28 @@ propiedad completa. body y params sí se pueden reasignar normalmente
 - PENDIENTE (antes de producción real): refresh tokens — hoy solo hay access token
   de larga duración, aceptable para desarrollo pero no ideal para producción.
 
+## Perfil — PATCH /api/auth/me (edición de perfil) COMPLETADO Y VERIFICADO
+Nuevo endpoint para actualizar el perfil del usuario autenticado (usado por el
+frontend en /cuenta). Contracto:
+- `PATCH /api/auth/me`, authMiddleware + validateSchemaMiddleware(updateProfileSchema).
+- Body parcial `{ firstName?, lastName?, email?, phone? }` (Zod: min 2/max 100
+  para nombres, email válido, phone `string | null`). Refine: al menos 1 campo.
+- 200 → UserProfileDTO actualizado. 400 datos inválidos, 401 sin sesión,
+  409 si el email pertenece a otro usuario.
+- Unicidad de email case-insensitive: se compara `data.email.toLowerCase()` contra
+  `user.email.toLowerCase()`; el email propio con distinto casing pasa sin conflict.
+- exactOptionalPropertyTypes: el service filtra explícitamente los campos undefined
+  (solo pasa los presentes a repository.update); `phone: null` es un valor válido
+  (borra el teléfono). NUNCA pasar el objeto `data` crudo a Prisma.
+- repository.update(userId, data) agrega update a AuthRepository.
+- NO se reemiten tokens al cambiar email: el claim email del JWT queda stale pero
+  es inofensivo — el backend solo consume req.user.id/role, nunca req.user.email,
+  y GET /auth/me lee de DB por userId.
+- 6 unit tests nuevos (updateProfile en auth.service.test.ts); total 172 tests.
+- OpenAPI: PATCH /api/auth/me + schema UpdateProfileRequest (minProperties: 1).
+Verificado end-to-end vía BFF (register → PATCH → GET /me): nombre/apellido/teléfono
+reflejados, cambio de email reflejado, email de otro usuario → 409, sin sesión → 401.
+
 ## Arquitectura de autenticación Frontend-Backend (decisión, a implementar en frontend)
 Patrón BFF (Backend For Frontend): las cookies httpOnly viven en el
 dominio de Next.js, NUNCA en el de Express. El navegador solo habla con
