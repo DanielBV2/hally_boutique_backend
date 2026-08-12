@@ -33,7 +33,10 @@ export function authMiddleware(
   }
 
   try {
-    const decoded = verify(token, env.JWT_SECRET as string) as unknown as JwtPayload;
+    const decoded = verify(token, env.JWT_SECRET, {
+      issuer: env.JWT_ISSUER,
+      audience: env.JWT_AUDIENCE,
+    }) as unknown as JwtPayload;
 
     const user: AuthUser = {
       id: decoded.sub,

@@ -4,6 +4,8 @@ vi.mock("../../../src/config/env.js", () => ({
   env: {
     JWT_SECRET: "test-jwt-secret",
     JWT_EXPIRES_IN: "15m",
+    JWT_ISSUER: "test-issuer",
+    JWT_AUDIENCE: "test-audience",
     REFRESH_TOKEN_EXPIRES_IN_DAYS: 30,
     PASSWORD_RESET_TOKEN_EXPIRES_IN_MINUTES: 60,
     FRONTEND_RESET_URL: "http://localhost:3000/reset",

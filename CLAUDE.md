@@ -744,6 +744,33 @@ Todos los `console.log/error/warn` dispersos fueron reemplazados por **pino**
   boot con JSON estructurado y request log con `req.id` preservado del header.
   160/160 tests pasando, typecheck limpio.
 
+## JWT hardening (mejora #18) — COMPLETADO
+- **issuer/audience**: `signToken` (auth.service.ts) firma los access tokens con
+  `issuer` y `audience` (envs `JWT_ISSUER` default `hallyboutique-api`,
+  `JWT_AUDIENCE` default `hallyboutique-web`, en env.ts). `authMiddleware`
+  verifica AMBOS en `verify` — un token sin issuer/audience, o con valores
+  distintos, se rechaza con 401. Verificado end-to-end en vivo (register → /me
+  con token firmado, token corrupto → 401).
+- **`as string` eliminado**: `authMiddleware` ya no castea `env.JWT_SECRET as
+  string` (el schema de env.ts ya garantiza `string` en runtime y tipo).
+- **`jti` (claim nuevo)**: cada access token lleva `jti: randomUUID()` — deja el
+  gancho para una blocklist futura (p.ej. Redis) sin costo hoy.
+- **Invalidación de access token al rotar — DECISIÓN DOCUMENTADA (no
+  implementada)**: los access tokens son JWT stateless de 15 min a propósito; NO
+  se invalidan al rotar el refresh. Razones: (1) invalidarlos requeriría una
+  blocklist (jti + Redis) con round-trip a DB/cache por request, negando el
+  beneficio de JWT stateless; (2) el escenario de token robado ya está cubierto
+  por la detección de reuso del refresh (revoca TODOS los refresh tokens del
+  usuario) y el reset de password (revoca todos los refresh); el access token
+  expira en ≤15 min. Si en producción se necesita invalidación instantánea, el
+  camino es blocklist de `jti` en Redis.
+- Nota: los tokens emitidos ANTES de este cambio quedan inválidos (no traen
+  issuer/audience) — aceptable, expiran en 15 min.
+- Tests: 6 tests nuevos de `authMiddleware` (token válido con issuer/audience →
+  req.user; sin issuer/audience → 401; issuer incorrecto → 401; audience
+  incorrecta → 401; sin header → 401; header sin formato Bearer → 401).
+  166/166 tests pasando, typecheck limpio.
+
 ## Estado actual del proyecto (actualizado)
 
 - [x] Schema de Prisma completo y migrado

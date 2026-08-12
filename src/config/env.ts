@@ -12,6 +12,8 @@ const envSchema = z.object({
   DATABASE_URL: z.string().url(),
   JWT_SECRET: z.string().min(1, "JWT_SECRET is required"),
   JWT_EXPIRES_IN: z.string().default("15m"),
+  JWT_ISSUER: z.string().min(1).default("hallyboutique-api"),
+  JWT_AUDIENCE: z.string().min(1).default("hallyboutique-web"),
   REFRESH_TOKEN_EXPIRES_IN_DAYS: z.coerce.number().positive().default(30),
   RESEND_API_KEY: z.string().optional(),
   EMAIL_FROM: z.string().default("onboarding@resend.dev"),

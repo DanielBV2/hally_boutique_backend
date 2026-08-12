@@ -1,5 +1,6 @@
 import bcrypt from "bcrypt";
 import jsonwebtoken from "jsonwebtoken";
+import { randomUUID } from "node:crypto";
 import type { AuthRepository, AuthFilters, AuthPagination } from "./auth.repository.js";
 import type { RefreshTokenRepository } from "./refresh-token.repository.js";
 import type { PasswordResetTokenRepository } from "./password-reset-token.repository.js";
@@ -87,10 +88,12 @@ function signToken(payload: {
   role: Role;
 }): string {
   return jsonwebtoken.sign(
-    { email: payload.email, role: payload.role },
+    { email: payload.email, role: payload.role, jti: randomUUID() },
     env.JWT_SECRET,
     {
       subject: payload.sub,
+      issuer: env.JWT_ISSUER,
+      audience: env.JWT_AUDIENCE,
       expiresIn: env.JWT_EXPIRES_IN,
     } as jsonwebtoken.SignOptions,
   );
