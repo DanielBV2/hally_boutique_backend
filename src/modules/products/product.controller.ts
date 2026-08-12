@@ -26,13 +26,15 @@ export class ProductController {
       { sortBy: query.sortBy, sortOrder: query.sortOrder },
     );
 
-    const body: ApiResponse<typeof result> = {
+    const data = {
+      items: result.items,
+      total: result.total,
+      page: result.page,
+      limit: query.limit,
+    };
+    const body: ApiResponse<typeof data> = {
       success: true,
-      data: {
-        items: result.items,
-        total: result.total,
-        page: result.page,
-      },
+      data,
     };
     res.status(200).json(body);
   };
@@ -48,9 +50,15 @@ export class ProductController {
       limit: query.limit,
     });
 
-    const body: ApiResponse<typeof result.items> = {
+    const data = {
+      items: result.items,
+      total: result.total,
+      page: query.page,
+      limit: query.limit,
+    };
+    const body: ApiResponse<typeof data> = {
       success: true,
-      data: result.items,
+      data,
     };
     res.status(200).json(body);
   };

@@ -694,6 +694,25 @@ una sola instancia de cada service (estado compartido, sin duplicados) y
 las rutas quedan declarativas. 153/153 tests pasando, typecheck limpio,
 server boot verificado (localhost:3000).
 
+## Paginación consistente (mejora #16) — COMPLETADO
+Todos los endpoints paginados usan el MISMO shape de respuesta:
+`data: { items, total, page, limit }`.
+
+Antes cada listado devolvía algo distinto:
+- GET /orders (usuario): `{ items, total, page, limit }` — el shape de
+  referencia.
+- GET /products (público): `{ items, total, page }` — le faltaba `limit`.
+- GET /products/admin/all, GET /categories/admin/all, GET /auth/admin/all,
+  GET /orders/admin/all: devolvían SOLO `items` (tiraban `total`/`page`/`limit`
+  aunque paginaban en el server).
+
+Ahora los 5 listados (products público, products admin, categories admin,
+orders admin, auth admin) + GET /orders construyen el envelope
+`{ items, total, page, limit }` en el controller — `page`/`limit` vienen del
+query (default 1/20 por el schema Zod), `total` del service. La forma de la
+respuesta ya no depende del endpoint que se consuma. 153/153 tests pasando,
+typecheck limpio.
+
 ## Estado actual del proyecto (actualizado)
 
 - [x] Schema de Prisma completo y migrado
