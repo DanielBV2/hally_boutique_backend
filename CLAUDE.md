@@ -662,6 +662,21 @@ timeout forzado). 153/153 tests pasando, typecheck limpio, server boot
 verificado. Nota: la señal SIGTERM no se probó de forma nativa en Windows
 (las señales son limitadas ahí) — la lógica queda cubierta por unit tests.
 
+## Duplicación de Express.Request.user eliminada (mejora #14) — COMPLETADO
+`Express.Request.user` estaba declarada en DOS archivos, con tipos
+distintos, y TypeScript las fusionaba en `user?: AuthUser | AuthenticatedUser`:
+
+- `src/shared/types/express.d.ts`: `AuthUser` (role: `Role` de Prisma) —
+  la única que se usa, la consume `authMiddleware`.
+- `src/shared/types/api-response.ts`: `AuthenticatedUser` (role literal
+  `'CUSTOMER' | 'ADMIN'`) + su propio `declare global` — tipo MUERTO,
+  nadie lo importaba.
+
+Se eliminó la interfaz `AuthenticatedUser` y su `declare global` de
+`api-response.ts` (ahí queda solo `ApiResponse`). `express.d.ts` es la
+única fuente de verdad para `req.user`. 153/153 tests pasando, typecheck
+limpio.
+
 ## Estado actual del proyecto (actualizado)
 
 - [x] Schema de Prisma completo y migrado

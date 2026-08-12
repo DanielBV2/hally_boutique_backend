@@ -17,18 +17,3 @@ export function errorResponse(
 export type ApiResponse<T> =
   | { success: true; data: T }
   | { success: false; error: { code: string; message: string; details?: unknown } };
-
-// express.d.ts — extiende Request de Express
-export interface AuthenticatedUser {
-  id: string;
-  email: string;
-  role: 'CUSTOMER' | 'ADMIN';
-}
-
-declare global {
-  namespace Express {
-    interface Request {
-      user?: AuthenticatedUser;
-    }
-  }
-}
