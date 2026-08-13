@@ -1,9 +1,14 @@
 import { z } from "zod";
 
+const optionalSku = z.preprocess(
+  (value) => (value === "" ? undefined : value),
+  z.string().min(3).max(50).optional(),
+);
+
 export const createVariantSchema = z.object({
   size: z.enum(["XS", "S", "M", "L", "XL", "XXL"]),
   color: z.string().min(2).max(50),
-  sku: z.string().min(3).max(50).optional(),
+  sku: optionalSku,
   stock: z.number().int().nonnegative().default(0),
   priceDelta: z.number().default(0),
 });
@@ -13,7 +18,7 @@ export type CreateVariantInput = z.infer<typeof createVariantSchema>;
 export const updateVariantSchema = z.object({
   stock: z.number().int().nonnegative().optional(),
   priceDelta: z.number().optional(),
-  sku: z.string().min(3).max(50).optional(),
+  sku: optionalSku,
   isActive: z.boolean().optional(),
 });
 
