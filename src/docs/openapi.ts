@@ -1148,7 +1148,7 @@ export const openapiDocument: oas30.OpenAPIObject = {
           stock: { type: "number", default: 0 },
           priceDelta: { type: "number", default: 0 },
         },
-        required: ["size", "color", "sku"],
+        required: ["size", "color"],
       },
 
       UpdateVariantRequest: {

@@ -9,11 +9,12 @@ import {
   NotFoundError,
   ValidationError,
 } from "../../shared/errors/app-error.js";
+import { generateUniqueSku } from "../../shared/utils/sku.js";
 
 interface CreateVariantInput {
   size: string;
   color: string;
-  sku: string;
+  sku?: string | undefined;
   stock: number;
   priceDelta: number;
 }
@@ -102,17 +103,28 @@ export class VariantServiceImpl implements VariantService {
       );
     }
 
-    const skuExists = await this.variantRepo.skuExists(data.sku);
-    if (skuExists) {
-      throw new ConflictError(
-        `El SKU "${data.sku}" ya está en uso`,
+    let sku: string;
+    if (data.sku) {
+      const skuExists = await this.variantRepo.skuExists(data.sku);
+      if (skuExists) {
+        throw new ConflictError(
+          `El SKU "${data.sku}" ya está en uso`,
+        );
+      }
+      sku = data.sku;
+    } else {
+      sku = await generateUniqueSku(
+        product.name,
+        data.color,
+        data.size,
+        (candidate) => this.variantRepo.skuExists(candidate),
       );
     }
 
     const variant = await this.variantRepo.create(productId, {
       size: data.size as import("@prisma/client").Size,
       color: data.color,
-      sku: data.sku,
+      sku,
       stock: data.stock,
       priceDelta: data.priceDelta,
     });

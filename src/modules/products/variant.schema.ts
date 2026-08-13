@@ -3,7 +3,7 @@ import { z } from "zod";
 export const createVariantSchema = z.object({
   size: z.enum(["XS", "S", "M", "L", "XL", "XXL"]),
   color: z.string().min(2).max(50),
-  sku: z.string().min(3).max(50),
+  sku: z.string().min(3).max(50).optional(),
   stock: z.number().int().nonnegative().default(0),
   priceDelta: z.number().default(0),
 });

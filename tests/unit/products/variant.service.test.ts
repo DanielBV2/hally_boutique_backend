@@ -138,6 +138,72 @@ describe("VariantServiceImpl", () => {
       await expect(service.createVariant(productId, input)).rejects.toThrow(NotFoundError);
       expect(variantRepo.create).not.toHaveBeenCalled();
     });
+
+    it("genera el SKU desde nombre + color + talla si no se envía", async () => {
+      vi.mocked(productRepo.findById).mockResolvedValue(
+        makeProduct({ name: "Camisa Oxford" }),
+      );
+      vi.mocked(variantRepo.existsCombination).mockResolvedValue(false);
+      vi.mocked(variantRepo.skuExists).mockResolvedValue(false);
+      vi.mocked(variantRepo.create).mockResolvedValue(makeVariant());
+
+      const rest = {
+        size: input.size,
+        color: input.color,
+        stock: input.stock,
+        priceDelta: input.priceDelta,
+      };
+      await service.createVariant(productId, rest);
+
+      expect(variantRepo.skuExists).toHaveBeenCalledWith("CAM-OXF-RO-M");
+      expect(variantRepo.create).toHaveBeenCalledWith(
+        productId,
+        expect.objectContaining({ sku: "CAM-OXF-RO-M" }),
+      );
+    });
+
+    it("agrega sufijo numérico al SKU generado si ya existe", async () => {
+      vi.mocked(productRepo.findById).mockResolvedValue(
+        makeProduct({ name: "Camisa Oxford" }),
+      );
+      vi.mocked(variantRepo.existsCombination).mockResolvedValue(false);
+      vi.mocked(variantRepo.skuExists)
+        .mockResolvedValueOnce(true)
+        .mockResolvedValueOnce(false);
+      vi.mocked(variantRepo.create).mockResolvedValue(makeVariant());
+
+      const rest = {
+        size: input.size,
+        color: input.color,
+        stock: input.stock,
+        priceDelta: input.priceDelta,
+      };
+      await service.createVariant(productId, rest);
+
+      expect(variantRepo.skuExists).toHaveBeenNthCalledWith(1, "CAM-OXF-RO-M");
+      expect(variantRepo.skuExists).toHaveBeenNthCalledWith(2, "CAM-OXF-RO-M2");
+      expect(variantRepo.create).toHaveBeenCalledWith(
+        productId,
+        expect.objectContaining({ sku: "CAM-OXF-RO-M2" }),
+      );
+    });
+
+    it("mantiene el SKU manual sin modificarlo", async () => {
+      vi.mocked(productRepo.findById).mockResolvedValue(
+        makeProduct({ name: "Camisa Oxford" }),
+      );
+      vi.mocked(variantRepo.existsCombination).mockResolvedValue(false);
+      vi.mocked(variantRepo.skuExists).mockResolvedValue(false);
+      vi.mocked(variantRepo.create).mockResolvedValue(makeVariant());
+
+      await service.createVariant(productId, { ...input, sku: "SKU-MANUAL" });
+
+      expect(variantRepo.skuExists).toHaveBeenCalledWith("SKU-MANUAL");
+      expect(variantRepo.create).toHaveBeenCalledWith(
+        productId,
+        expect.objectContaining({ sku: "SKU-MANUAL" }),
+      );
+    });
   });
 
   describe("deleteVariant", () => {

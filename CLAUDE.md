@@ -825,6 +825,28 @@ Todos los `console.log/error/warn` dispersos fueron reemplazados por **pino**
 - `.env` sigue gitignoreado (verificado) — `.env.example` es la única referencia
   versionable. Proceso: copiar a `.env` y llenar.
 
+## SKU auto-generado en variantes — COMPLETADO
+`sku` ahora es OPCIONAL en `createVariantSchema`. Si no se envía, se genera
+automáticamente desde el nombre del producto + color + talla:
+
+- Nombre: primeras 3 letras de hasta 3 palabras, mayúsculas, separadas por "-"
+  ("Camisa Oxford" → `CAM-OXF`).
+- Color: primeras 2 letras, mayúsculas ("Azul" → `AZ`).
+- Talla: tal cual (`M`).
+- Resultado: `CAM-OXF-AZ-M`.
+- Colisiones: sufijo numérico pegado al final sin guion, `CAM-OXF-AZ-M2`,
+  `M3`, ... (mismo patrón que `generateUniqueSlug`).
+- Normalización: se eliminan tildes (NFD) antes de abreviar.
+
+Implementación: `src/shared/utils/sku.ts` (`buildSkuBase` +
+`generateUniqueSku`). El SKU manual sigue aceptándose y validándose por
+unicidad (ConflictError si ya existe) — solo se genera cuando se omite.
+OpenAPI actualizado (`CreateVariantRequest.sku` ya no es requerido).
+
+11 tests en `variant.service.test.ts` (3 nuevos: generación, sufijo de
+colisión, SKU manual intacto) + 7 tests en `tests/unit/shared/sku.test.ts`.
+182/182 tests pasando, typecheck limpio.
+
 ## Estado actual del proyecto (actualizado)
 
 - [x] Schema de Prisma completo y migrado
