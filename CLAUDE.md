@@ -847,6 +847,42 @@ OpenAPI actualizado (`CreateVariantRequest.sku` ya no es requerido).
 colisión, SKU manual intacto) + 7 tests en `tests/unit/shared/sku.test.ts`.
 182/182 tests pasando, typecheck limpio.
 
+## PATCH /api/orders/:orderId/address (cambiar dirección) — COMPLETADO
+Habilita la navegación hacia atrás en el checkout del frontend: la Order se
+crea en el paso 1 (dirección) y el usuario puede volver y cambiar la
+dirección ANTES de pagar. Antes era imposible — el snapshot shipping* quedaba
+fijo al crear (createOrderFromCart es idempotente por idempotencyKey y no
+re-escribía la dirección).
+
+- Contrato: `PATCH /api/orders/:orderId/address` con body `{ addressId: uuid }`
+  (schema `updateOrderAddressSchema`). Auth requerido (mismo `router.use(
+  authMiddleware)` de orders).
+- Reglas de negocio en `OrderServiceImpl.updateOrderAddress`:
+  - Owner check de la ORDER (NotFound si no existe o es de otro usuario).
+  - `status !== "PENDING"` → 409 (mismo criterio que shipping-quote/
+    shipping-selection; una orden PAID+ ya no debe cambiar de destino).
+  - Owner check de la ADDRESS (NotFound si no existe o es de otro usuario).
+  - Misma dirección ya seleccionada → devuelve la orden sin cambios (no-op,
+    sin escritura).
+  - Cambio real → `orderRepository.updateAddressAndResetShipping`:
+    actualiza el snapshot shipping* desde la address Y RESETEA el envío:
+    shippingCarrier/shippingService null, shippingAmount 0, shippingStatus
+    "PENDING", tracking/labelUrl null. `total = subtotal + taxAmount`
+    (sin shipping). Razón: el destino cambió, la cotización previa es
+    inválida — la UI debe re-cotizar (shipping-quote) y re-seleccionar
+    (shipping-selection) antes de pagar.
+- Repository: `updateAddressAndResetShipping(orderId, data)` (interface +
+  impl Prisma).
+- OpenAPI documentado (endpoint + `UpdateOrderAddressRequest`).
+- 5 tests unitarios nuevos en `tests/unit/orders/order.service.test.ts`
+  (order ajena → NotFound, no-PENDING → Conflict, address ajena → NotFound,
+  misma dirección → no-op sin escritura, éxito → snapshot + reset + total).
+  193/193 tests pasando, typecheck limpio. Verificado en vivo vía BFF: orden
+  con shipping seleccionado (shippingAmount=60) → PATCH cambia address y
+  resetea (shippingAmount=0, shippingStatus=PENDING, total vuelve a
+  subtotal+impuestos) → re-quote funciona (11 opciones); address de otro
+  usuario → 404 con mensaje real del backend.
+
 ## Estado actual del proyecto (actualizado)
 
 - [x] Schema de Prisma completo y migrado

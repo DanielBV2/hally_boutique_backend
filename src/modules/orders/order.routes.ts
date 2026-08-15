@@ -10,6 +10,7 @@ import {
   shippingSelectionSchema,
   adminOrdersQuerySchema,
   updateOrderStatusSchema,
+  updateOrderAddressSchema,
 } from "./order.schema.js";
 import { container } from "../../di/container.js";
 import { createCheckoutParamsSchema } from "../payments/payment.schema.js";
@@ -77,6 +78,13 @@ router.patch(
   validateSchemaMiddleware(orderIdParamsSchema, "params"),
   validateSchemaMiddleware(shippingSelectionSchema, "body"),
   orderController.selectShipping,
+);
+
+router.patch(
+  "/:orderId/address",
+  validateSchemaMiddleware(orderIdParamsSchema, "params"),
+  validateSchemaMiddleware(updateOrderAddressSchema, "body"),
+  orderController.updateAddress,
 );
 
 export { router as orderRoutes };

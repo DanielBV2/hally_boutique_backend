@@ -44,6 +44,21 @@ export interface OrderRepository {
       total: number;
     },
   ): Promise<OrderWithItems>;
+  updateAddressAndResetShipping(
+    orderId: string,
+    data: {
+      shippingAddressId: string;
+      shippingFullName: string;
+      shippingPhone: string;
+      shippingLine1: string;
+      shippingLine2: string | null;
+      shippingCity: string;
+      shippingState: string;
+      shippingCountry: string;
+      shippingPostalCode: string | null;
+      total: number;
+    },
+  ): Promise<OrderWithItems>;
 }
 
 const includeItems = {
@@ -216,6 +231,45 @@ export class PrismaOrderRepository implements OrderRepository {
         shippingCarrier: data.shippingCarrier,
         shippingService: data.shippingService,
         shippingAmount: data.shippingAmount,
+        total: data.total,
+      },
+      include: includeItems,
+    });
+  }
+
+  async updateAddressAndResetShipping(
+    orderId: string,
+    data: {
+      shippingAddressId: string;
+      shippingFullName: string;
+      shippingPhone: string;
+      shippingLine1: string;
+      shippingLine2: string | null;
+      shippingCity: string;
+      shippingState: string;
+      shippingCountry: string;
+      shippingPostalCode: string | null;
+      total: number;
+    },
+  ) {
+    return this.prisma.order.update({
+      where: { id: orderId },
+      data: {
+        shippingAddressId: data.shippingAddressId,
+        shippingFullName: data.shippingFullName,
+        shippingPhone: data.shippingPhone,
+        shippingLine1: data.shippingLine1,
+        shippingLine2: data.shippingLine2,
+        shippingCity: data.shippingCity,
+        shippingState: data.shippingState,
+        shippingCountry: data.shippingCountry,
+        shippingPostalCode: data.shippingPostalCode,
+        shippingCarrier: null,
+        shippingService: null,
+        shippingAmount: 0,
+        shippingStatus: "PENDING",
+        shippingTrackingNumber: null,
+        shippingLabelUrl: null,
         total: data.total,
       },
       include: includeItems,

@@ -44,6 +44,7 @@ function mockOrderRepo(): OrderRepository {
     updateShippingLabel: vi.fn(),
     markShippingLabelFailed: vi.fn(),
     updateShippingAndTotal: vi.fn(),
+    updateAddressAndResetShipping: vi.fn(),
   };
 }
 
@@ -476,6 +477,135 @@ describe("OrderServiceImpl", () => {
 
       expect(result.shippingAmount).toBe(0);
       expect(result.total).toBe(238000);
+    });
+  });
+
+  describe("updateOrderAddress", () => {
+    it("lanza NotFoundError si la orden no existe o pertenece a otro usuario", async () => {
+      vi.mocked(orderRepo.findByIdWithItems).mockResolvedValue(null);
+
+      await expect(
+        service.updateOrderAddress("user-1", "order-1", { addressId: "addr-2" }),
+      ).rejects.toThrow(NotFoundError);
+
+      vi.mocked(orderRepo.findByIdWithItems).mockResolvedValue(
+        makeOrder({ userId: "other-user" }),
+      );
+      await expect(
+        service.updateOrderAddress("user-1", "order-1", { addressId: "addr-2" }),
+      ).rejects.toThrow(NotFoundError);
+    });
+
+    it("lanza ConflictError si la orden no esta en estado PENDING", async () => {
+      vi.mocked(orderRepo.findByIdWithItems).mockResolvedValue(
+        makeOrder({ status: "PAID" }),
+      );
+
+      await expect(
+        service.updateOrderAddress("user-1", "order-1", { addressId: "addr-2" }),
+      ).rejects.toThrow(ConflictError);
+    });
+
+    it("lanza NotFoundError si la direccion no existe o pertenece a otro usuario", async () => {
+      vi.mocked(orderRepo.findByIdWithItems).mockResolvedValue(makeOrder());
+      vi.mocked(addressRepo.findById).mockResolvedValue(null);
+
+      await expect(
+        service.updateOrderAddress("user-1", "order-1", { addressId: "addr-2" }),
+      ).rejects.toThrow(NotFoundError);
+
+      vi.mocked(addressRepo.findById).mockResolvedValue({
+        id: "addr-2",
+        userId: "other-user",
+      } as any);
+      await expect(
+        service.updateOrderAddress("user-1", "order-1", { addressId: "addr-2" }),
+      ).rejects.toThrow(NotFoundError);
+    });
+
+    it("no cambia nada si la direccion ya esta seleccionada en la orden", async () => {
+      vi.mocked(orderRepo.findByIdWithItems).mockResolvedValue(makeOrder());
+      vi.mocked(addressRepo.findById).mockResolvedValue({
+        id: "addr-1",
+        userId: "user-1",
+      } as any);
+
+      const result = await service.updateOrderAddress("user-1", "order-1", {
+        addressId: "addr-1",
+      });
+
+      expect(result.shippingAddressId).toBe("addr-1");
+      expect(orderRepo.updateAddressAndResetShipping).not.toHaveBeenCalled();
+    });
+
+    it("exitoso: actualiza snapshot de direccion y resetea envio; total = subtotal + impuestos", async () => {
+      const order = makeOrder({
+        subtotal: 100000,
+        taxAmount: 19000,
+        total: 131000,
+        shippingAddressId: "addr-1",
+        shippingCarrier: "coordinadora",
+        shippingService: "express",
+        shippingAmount: 12000,
+        shippingStatus: "LABEL_GENERATED" as any,
+      });
+      vi.mocked(orderRepo.findByIdWithItems).mockResolvedValue(order);
+
+      const mockAddress = {
+        id: "addr-2",
+        userId: "user-1",
+        fullName: "Ana Gomez",
+        phone: "3011111111",
+        line1: "Carrera 7 # 45-10",
+        line2: "Apto 302",
+        city: "Bogota",
+        state: "Cundinamarca",
+        country: "CO",
+        postalCode: "110111",
+      };
+      vi.mocked(addressRepo.findById).mockResolvedValue(mockAddress as any);
+
+      const updatedOrder = makeOrder({
+        subtotal: 100000,
+        taxAmount: 19000,
+        shippingAmount: 0,
+        total: 119000,
+        shippingAddressId: "addr-2",
+        shippingFullName: "Ana Gomez",
+        shippingPhone: "3011111111",
+        shippingLine1: "Carrera 7 # 45-10",
+        shippingLine2: "Apto 302",
+        shippingCity: "Bogota",
+        shippingState: "Cundinamarca",
+        shippingCountry: "CO",
+        shippingPostalCode: "110111",
+        shippingCarrier: null,
+        shippingService: null,
+        shippingStatus: "PENDING",
+      });
+      vi.mocked(orderRepo.updateAddressAndResetShipping).mockResolvedValue(updatedOrder);
+
+      const result = await service.updateOrderAddress("user-1", "order-1", {
+        addressId: "addr-2",
+      });
+
+      expect(orderRepo.updateAddressAndResetShipping).toHaveBeenCalledWith("order-1", {
+        shippingAddressId: "addr-2",
+        shippingFullName: "Ana Gomez",
+        shippingPhone: "3011111111",
+        shippingLine1: "Carrera 7 # 45-10",
+        shippingLine2: "Apto 302",
+        shippingCity: "Bogota",
+        shippingState: "Cundinamarca",
+        shippingCountry: "CO",
+        shippingPostalCode: "110111",
+        total: 119000,
+      });
+      expect(result.shippingAddressId).toBe("addr-2");
+      expect(result.shippingCarrier).toBeNull();
+      expect(result.shippingAmount).toBe(0);
+      expect(result.shippingStatus).toBe("PENDING");
+      expect(result.total).toBe(119000);
     });
   });
 

@@ -29,6 +29,12 @@ export const shippingSelectionSchema = z.object({
 
 export type ShippingSelectionInput = z.infer<typeof shippingSelectionSchema>;
 
+export const updateOrderAddressSchema = z.object({
+  addressId: z.string().uuid(),
+});
+
+export type UpdateOrderAddressInput = z.infer<typeof updateOrderAddressSchema>;
+
 export const adminOrdersQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(50).default(20),

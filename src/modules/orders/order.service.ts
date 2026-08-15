@@ -12,6 +12,7 @@ import type {
   CreateOrderInput,
   ListOrdersQuery,
   ShippingSelectionInput,
+  UpdateOrderAddressInput,
 } from "./order.schema.js";
 import type { OrderWithItems, CreateOrderItemData, AdminOrderWithUser, Pagination } from "./order.types.js";
 import type { OrderStatus } from "@prisma/client";
@@ -34,6 +35,7 @@ export interface OrderService {
   createOrderFromCart(userId: string, data: CreateOrderInput): Promise<OrderDetailDTO>;
   getShippingQuote(userId: string, orderId: string): Promise<ShippingRateOption[]>;
   selectShipping(userId: string, orderId: string, data: ShippingSelectionInput): Promise<OrderDetailDTO>;
+  updateOrderAddress(userId: string, orderId: string, data: UpdateOrderAddressInput): Promise<OrderDetailDTO>;
   listAllOrdersAdmin(
     filters: OrderFilters,
     pagination: Pagination,
@@ -339,6 +341,46 @@ export class OrderServiceImpl implements OrderService {
       shippingCarrier: data.carrier,
       shippingService: data.service,
       shippingAmount,
+      total,
+    });
+
+    return toDetailDTO(updated);
+  }
+
+  async updateOrderAddress(
+    userId: string,
+    orderId: string,
+    data: UpdateOrderAddressInput,
+  ): Promise<OrderDetailDTO> {
+    const order = await this.orderRepository.findByIdWithItems(orderId);
+    if (!order || order.userId !== userId) {
+      throw new NotFoundError("Order");
+    }
+    if (order.status !== "PENDING") {
+      throw new ConflictError("Solo se puede cambiar la dirección de órdenes en estado PENDING");
+    }
+
+    const address = await this.addressRepository.findById(data.addressId);
+    if (!address || address.userId !== userId) {
+      throw new NotFoundError("Address");
+    }
+
+    if (address.id === order.shippingAddressId) {
+      return toDetailDTO(order);
+    }
+
+    const total = Number(order.subtotal) + Number(order.taxAmount);
+
+    const updated = await this.orderRepository.updateAddressAndResetShipping(orderId, {
+      shippingAddressId: address.id,
+      shippingFullName: address.fullName,
+      shippingPhone: address.phone,
+      shippingLine1: address.line1,
+      shippingLine2: address.line2,
+      shippingCity: address.city,
+      shippingState: address.state,
+      shippingCountry: address.country,
+      shippingPostalCode: address.postalCode,
       total,
     });
 

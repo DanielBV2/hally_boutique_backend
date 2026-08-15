@@ -781,6 +781,31 @@ export const openapiDocument: oas30.OpenAPIObject = {
       },
     },
 
+    "/api/orders/{orderId}/address": {
+      patch: {
+        tags: ["Orders"],
+        summary: "Cambiar dirección de envío de una orden PENDING",
+        description:
+          "Permite corregir la dirección tras crear la orden (navegación hacia atrás en el checkout). " +
+          "Actualiza el snapshot de dirección y resetea envío (shippingAmount 0, shippingStatus PENDING, " +
+          "carrier/servicio null) porque el destino cambió: hay que re-cotizar. total vuelve a subtotal + impuestos.",
+        parameters: [
+          { name: "orderId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": { schema: { $ref: "#/components/schemas/UpdateOrderAddressRequest" } },
+          },
+        },
+        responses: {
+          "200": successResponse("#/components/schemas/OrderDetail"),
+          "404": errorResponse,
+          "409": errorResponse,
+        },
+      },
+    },
+
     "/api/orders/admin/all": {
       get: {
         tags: ["Orders"],
@@ -1435,6 +1460,14 @@ export const openapiDocument: oas30.OpenAPIObject = {
           service: { type: "string" },
         },
         required: ["carrier", "service"],
+      },
+
+      UpdateOrderAddressRequest: {
+        type: "object",
+        properties: {
+          addressId: { type: "string", format: "uuid" },
+        },
+        required: ["addressId"],
       },
 
       UpdateOrderStatusRequest: {

@@ -7,6 +7,7 @@ import type {
   ShippingSelectionInput,
   AdminOrdersQuery,
   UpdateOrderStatusInput,
+  UpdateOrderAddressInput,
 } from "./order.schema.js";
 
 export class OrderController {
@@ -66,6 +67,18 @@ export class OrderController {
     const { orderId } = req.params as { orderId: string };
     const data = req.body as ShippingSelectionInput;
     const order = await this.service.selectShipping(req.user!.id, orderId, data);
+
+    const body: ApiResponse<typeof order> = {
+      success: true,
+      data: order,
+    };
+    res.status(200).json(body);
+  };
+
+  updateAddress = async (req: Request, res: Response) => {
+    const { orderId } = req.params as { orderId: string };
+    const data = req.body as UpdateOrderAddressInput;
+    const order = await this.service.updateOrderAddress(req.user!.id, orderId, data);
 
     const body: ApiResponse<typeof order> = {
       success: true,
