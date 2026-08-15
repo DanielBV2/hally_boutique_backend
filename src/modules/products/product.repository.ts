@@ -45,6 +45,7 @@ export type ProductWithListRelations = Prisma.ProductGetPayload<{
   include: {
     category: { select: { name: true } };
     images: { orderBy: { position: "asc" }; take: 2 };
+    variants: { select: { stock: true; isActive: true } };
   };
 }>;
 
@@ -84,6 +85,7 @@ const includeFull = {
 const includeList = {
   category: { select: { name: true } },
   images: { orderBy: { position: "asc" as const }, take: 2 },
+  variants: { select: { stock: true, isActive: true } },
 } satisfies Prisma.ProductInclude;
 
 export class PrismaProductRepository implements ProductRepository {

@@ -63,6 +63,7 @@ function toListItemDTO(product: ProductWithListRelations): ProductListItemDTO {
     secondaryImageUrl: product.images[1]?.url ?? null,
     categoryName: product.category.name,
     images: product.images,
+    hasStock: product.variants.some((v) => v.isActive && v.stock > 0),
   };
 }
 

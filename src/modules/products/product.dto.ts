@@ -8,6 +8,7 @@ export interface ProductListItemDTO {
   secondaryImageUrl: string | null;
   categoryName: string;
   images: { id: string; url: string; altText: string | null }[];
+  hasStock: boolean;
 }
 
 export interface ProductDetailDTO {

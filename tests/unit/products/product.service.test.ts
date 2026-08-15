@@ -54,6 +54,7 @@ function makeListItem(overrides: Partial<ProductWithListRelations> = {}): Produc
     updatedAt: new Date("2026-01-01"),
     category: { name: "Camisetas" },
     images: [],
+    variants: [],
     ...overrides,
   } as unknown as ProductWithListRelations;
 }
@@ -116,6 +117,34 @@ describe("ProductServiceImpl", () => {
       expect(result.items).toHaveLength(1);
       expect(result.total).toBe(1);
       expect(result.page).toBe(1);
+    });
+
+    it("expone hasStock en los items (true si hay al menos una variante activa con stock)", async () => {
+      const filters = { categoryId: undefined, search: undefined, minPrice: undefined, maxPrice: undefined };
+      const pagination = { page: 1, limit: 20 };
+      const sort = { sortBy: "createdAt" as const, sortOrder: "desc" as const };
+
+      vi.mocked(productRepo.findMany).mockResolvedValue({
+        products: [
+          makeListItem({ variants: [
+            { stock: 0, isActive: true },
+            { stock: 5, isActive: true },
+          ] }),
+          makeListItem({ id: "prod-2", variants: [
+            { stock: 0, isActive: true },
+          ] }),
+          makeListItem({ id: "prod-3", variants: [
+            { stock: 3, isActive: false },
+          ] }),
+        ],
+        total: 3,
+      });
+
+      const result = await service.listProducts(filters, pagination, sort);
+
+      expect(result.items[0].hasStock).toBe(true);
+      expect(result.items[1].hasStock).toBe(false);
+      expect(result.items[2].hasStock).toBe(false);
     });
   });
 

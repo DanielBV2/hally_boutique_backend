@@ -1028,8 +1028,9 @@ export const openapiDocument: oas30.OpenAPIObject = {
           secondaryImageUrl: { type: "string", nullable: true },
           categoryName: { type: "string" },
           images: { type: "array", items: { $ref: "#/components/schemas/ProductImage" } },
+          hasStock: { type: "boolean" },
         },
-        required: ["id", "name", "slug", "basePrice", "currency", "thumbnailUrl", "secondaryImageUrl", "categoryName", "images"],
+        required: ["id", "name", "slug", "basePrice", "currency", "thumbnailUrl", "secondaryImageUrl", "categoryName", "images", "hasStock"],
       },
 
       ProductDetail: {
