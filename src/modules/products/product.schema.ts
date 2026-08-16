@@ -13,6 +13,7 @@ export type CreateProductInput = z.infer<typeof createProductSchema>;
 
 export const updateProductSchema = createProductSchema.partial().extend({
   weightGrams: z.number().int().positive().optional(),
+  isActive: z.boolean().optional(),
 });
 
 export type UpdateProductInput = z.infer<typeof updateProductSchema>;

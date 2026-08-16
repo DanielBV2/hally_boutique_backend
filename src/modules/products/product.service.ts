@@ -26,6 +26,7 @@ interface UpdateProductInput {
   currency?: string | undefined;
   weightGrams?: number | undefined;
   categoryId?: string | undefined;
+  isActive?: boolean | undefined;
 }
 
 interface AddImageInput {
@@ -64,6 +65,7 @@ function toListItemDTO(product: ProductWithListRelations): ProductListItemDTO {
     categoryName: product.category.name,
     images: product.images,
     hasStock: product.variants.some((v) => v.isActive && v.stock > 0),
+    isActive: product.isActive,
   };
 }
 
@@ -166,7 +168,7 @@ export class ProductServiceImpl implements ProductService {
       }
     }
 
-    const updateData: Record<string, string | number> = {};
+    const updateData: Record<string, string | number | boolean> = {};
 
     if (data.name !== undefined) updateData.name = data.name;
     if (data.description !== undefined) updateData.description = data.description;
@@ -174,6 +176,7 @@ export class ProductServiceImpl implements ProductService {
     if (data.currency !== undefined) updateData.currency = data.currency;
     if (data.weightGrams !== undefined) updateData.weightGrams = data.weightGrams;
     if (data.categoryId !== undefined) updateData.categoryId = data.categoryId;
+    if (data.isActive !== undefined) updateData.isActive = data.isActive;
 
     if (data.name !== undefined) {
       updateData.slug = await generateUniqueSlug(data.name, (slug) =>
@@ -191,6 +194,7 @@ export class ProductServiceImpl implements ProductService {
         currency: string;
         weightGrams: number;
         categoryId: string;
+        isActive: boolean;
       }>,
     );
     return toDetailDTO(product);

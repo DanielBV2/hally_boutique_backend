@@ -9,6 +9,7 @@ export interface ProductListItemDTO {
   categoryName: string;
   images: { id: string; url: string; altText: string | null }[];
   hasStock: boolean;
+  isActive: boolean;
 }
 
 export interface ProductDetailDTO {

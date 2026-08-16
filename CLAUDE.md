@@ -883,6 +883,32 @@ re-escribía la dirección).
   subtotal+impuestos) → re-quote funciona (11 opciones); address de otro
   usuario → 404 con mensaje real del backend.
 
+## PATCH /products/:id ahora acepta isActive (activar/desactivar producto) — COMPLETADO Y VERIFICADO
+Habilita el toggle Activo/Inactivo del panel admin (Switch por fila en la
+tabla de productos). Antes el PATCH no aceptaba isActive: `updateProductSchema`
+no lo incluía, `updateProduct` construía updateData solo con campos conocidos,
+`ProductListItemDTO` no lo exponía y openapi no lo documentaba — el frontend
+no podía ocultar/desocultar un producto sin borrarlo.
+
+- `updateProductSchema` (product.schema.ts): gana `isActive: z.boolean().optional()`.
+- `ProductListItemDTO` (product.dto.ts): gana `isActive: boolean`; `toListItemDTO`
+  lo mapea (la lista admin y la lista pública lo devuelven). El soft-delete ya
+  usaba isActive, así que GET /products/admin/all puede listar inactivos SIN
+  filtro (el admin ahora muestra todo el catálogo para poder reactivar).
+- `UpdateProductInput` gana `isActive?: boolean`; `updateProduct` lo propaga a
+  updateData y amplía el cast de `Partial<...>` (también `Record<string,
+  string | number | boolean>`). El PATCH sigue siendo parcial — isActive se
+  envía solo cuando llega.
+- openapi.ts: `UpdateProductRequest` documenta `isActive` (descripción de
+  visibilidad en tienda) y `ProductListItem` lo incluye en propiedades +
+  required.
+- 2 tests nuevos en `tests/unit/products/product.service.test.ts`
+  (updateProduct propaga isActive; no lo envía si el campo no llega).
+  201/201 tests pasando, typecheck limpio. Verificado en vivo vía BFF 3001:
+  lista admin total=10 (7 activos + 3 inactivos), DTO expone isActive, PATCH
+  isActive=false → 200 y el listado refleja false, PATCH isActive=true → 200
+  y restaura. Sin cambios de esquema Prisma (isActive ya existía).
+
 ## Estado actual del proyecto (actualizado)
 
 - [x] Schema de Prisma completo y migrado

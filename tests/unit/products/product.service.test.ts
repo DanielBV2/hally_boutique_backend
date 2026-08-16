@@ -247,6 +247,34 @@ describe("ProductServiceImpl", () => {
     });
   });
 
+  describe("updateProduct", () => {
+    it("propaga isActive al repository cuando se envía", async () => {
+      vi.mocked(productRepo.findById).mockResolvedValue(makeProduct());
+      vi.mocked(productRepo.update).mockResolvedValue(makeProduct());
+
+      await service.updateProduct("prod-1", { isActive: false });
+
+      expect(productRepo.update).toHaveBeenCalledWith(
+        "prod-1",
+        { isActive: false },
+      );
+    });
+
+    it("no envía isActive cuando el campo no llega", async () => {
+      vi.mocked(productRepo.findById).mockResolvedValue(makeProduct());
+      vi.mocked(productRepo.update).mockResolvedValue(makeProduct());
+
+      await service.updateProduct("prod-1", { name: "Nuevo nombre" });
+
+      expect(productRepo.update).toHaveBeenCalledWith(
+        "prod-1",
+        expect.objectContaining({ name: "Nuevo nombre" }),
+      );
+      const updateData = vi.mocked(productRepo.update).mock.calls[0][1] as Record<string, unknown>;
+      expect(updateData.isActive).toBeUndefined();
+    });
+  });
+
   describe("deleteProduct", () => {
     it("llama a softDelete (isActive: false) y nunca a borrado físico", async () => {
       vi.mocked(productRepo.findById).mockResolvedValue(makeProduct());

@@ -1097,8 +1097,9 @@ export const openapiDocument: oas30.OpenAPIObject = {
           categoryName: { type: "string" },
           images: { type: "array", items: { $ref: "#/components/schemas/ProductImage" } },
           hasStock: { type: "boolean" },
+          isActive: { type: "boolean" },
         },
-        required: ["id", "name", "slug", "basePrice", "currency", "thumbnailUrl", "secondaryImageUrl", "categoryName", "images", "hasStock"],
+        required: ["id", "name", "slug", "basePrice", "currency", "thumbnailUrl", "secondaryImageUrl", "categoryName", "images", "hasStock", "isActive"],
       },
 
       ProductDetail: {
@@ -1173,6 +1174,7 @@ export const openapiDocument: oas30.OpenAPIObject = {
           currency: { type: "string" },
           weightGrams: { type: "number" },
           categoryId: { type: "string", format: "uuid" },
+          isActive: { type: "boolean", description: "Activar/desactivar producto (visibilidad en tienda)." },
         },
       },
 
