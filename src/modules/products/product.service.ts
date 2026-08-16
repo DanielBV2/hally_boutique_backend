@@ -77,6 +77,7 @@ function toDetailDTO(product: ProductWithRelations): ProductDetailDTO {
     description: product.description,
     basePrice,
     currency: product.currency,
+    weightGrams: product.weightGrams,
     category: product.category,
     images: product.images,
     variants: product.variants.filter((v) => v.isActive).map((v) => ({

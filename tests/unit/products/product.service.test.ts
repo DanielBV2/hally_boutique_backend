@@ -73,9 +73,10 @@ describe("ProductServiceImpl", () => {
     const input = {
       name: "Camiseta Básica",
       description: "Una camiseta básica de algodón para todos los días",
-      basePrice: 50000,
-      currency: "COP",
-      categoryId: "cat-1",
+    basePrice: 50000,
+    currency: "COP",
+    weightGrams: 300,
+    categoryId: "cat-1",
     };
 
     it("genera slug con sufijo -2 cuando hay colisión en el slug base", async () => {

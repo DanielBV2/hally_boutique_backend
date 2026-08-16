@@ -15,6 +15,7 @@ import {
   forgotPasswordSchema,
   resetPasswordSchema,
   updateProfileSchema,
+  changePasswordSchema,
 } from "./auth.schema.js";
 import { container } from "../../di/container.js";
 
@@ -76,6 +77,13 @@ router.patch(
   authMiddleware,
   validateSchemaMiddleware(updateProfileSchema),
   authController.updateProfile,
+);
+
+router.patch(
+  "/me/password",
+  authMiddleware,
+  validateSchemaMiddleware(changePasswordSchema),
+  authController.changePassword,
 );
 
 export { router as authRoutes };

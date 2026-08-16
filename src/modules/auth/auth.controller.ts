@@ -8,6 +8,7 @@ import type {
   ForgotPasswordInput,
   ResetPasswordInput,
   UpdateProfileInput,
+  ChangePasswordInput,
 } from "./auth.schema.js";
 import type { ApiResponse } from "../../shared/types/api-response.js";
 
@@ -44,6 +45,15 @@ export class AuthController {
     const result = await this.service.updateProfile(userId, data);
 
     const body: ApiResponse<typeof result> = { success: true, data: result };
+    res.status(200).json(body);
+  };
+
+  changePassword = async (req: Request, res: Response) => {
+    const userId = req.user!.id;
+    const data = req.body as ChangePasswordInput;
+    await this.service.changePassword(userId, data);
+
+    const body: ApiResponse<null> = { success: true, data: null };
     res.status(200).json(body);
   };
 

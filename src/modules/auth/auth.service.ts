@@ -10,7 +10,7 @@ import type {
   UserProfileDTO,
   AdminUserListItemDTO,
 } from "./auth.dto.js";
-import type { RegisterInput, LoginInput, UpdateProfileInput } from "./auth.schema.js";
+import type { RegisterInput, LoginInput, UpdateProfileInput, ChangePasswordInput } from "./auth.schema.js";
 import {
   ConflictError,
   UnauthorizedError,
@@ -39,6 +39,7 @@ export interface AuthService {
   resetPassword(token: string, newPassword: string): Promise<void>;
   getProfile(userId: string): Promise<UserProfileDTO>;
   updateProfile(userId: string, data: UpdateProfileInput): Promise<UserProfileDTO>;
+  changePassword(userId: string, data: ChangePasswordInput): Promise<void>;
   listUsersAdmin(
     filters: AuthFilters,
     pagination: AuthPagination,
@@ -315,6 +316,25 @@ export class AuthServiceImpl implements AuthService {
 
     const updated = await this.repository.update(userId, updateData);
     return toUserProfileDTO(updated);
+  }
+
+  async changePassword(
+    userId: string,
+    data: ChangePasswordInput,
+  ): Promise<void> {
+    const user = await this.repository.findById(userId);
+    if (!user) {
+      throw new NotFoundError("User");
+    }
+
+    const valid = await bcrypt.compare(data.currentPassword, user.passwordHash);
+    if (!valid) {
+      throw new UnauthorizedError("La contraseña actual es incorrecta");
+    }
+
+    const passwordHash = await bcrypt.hash(data.newPassword, SALT_ROUNDS);
+    await this.repository.updatePassword(userId, passwordHash);
+    await this.refreshTokenRepository.revokeAllForUser(userId);
   }
 
   async listUsersAdmin(

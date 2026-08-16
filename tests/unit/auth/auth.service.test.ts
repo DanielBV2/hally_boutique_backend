@@ -661,4 +661,67 @@ describe("AuthServiceImpl", () => {
       });
     });
   });
+
+  describe("changePassword", () => {
+    const input = { currentPassword: "OldPassword1", newPassword: "NewPassword1" };
+
+    it("lanza NotFoundError si el usuario no existe", async () => {
+      vi.mocked(authRepo.findById).mockResolvedValue(null);
+
+      await expect(
+        service.changePassword("user-1", input),
+      ).rejects.toThrow(NotFoundError);
+      expect(bcrypt.compare).not.toHaveBeenCalled();
+    });
+
+    it("lanza UnauthorizedError si la contraseña actual es incorrecta", async () => {
+      vi.mocked(authRepo.findById).mockResolvedValue(makeUser());
+      vi.mocked(bcrypt.compare).mockResolvedValue(false as never);
+
+      let error: UnauthorizedError | undefined;
+      try {
+        await service.changePassword("user-1", input);
+      } catch (e) {
+        error = e as UnauthorizedError;
+      }
+
+      expect(error).toBeInstanceOf(UnauthorizedError);
+      expect(error!.message).toBe("La contraseña actual es incorrecta");
+      expect(bcrypt.hash).not.toHaveBeenCalled();
+      expect(authRepo.updatePassword).not.toHaveBeenCalled();
+    });
+
+    it("caso feliz: verifica la actual, hashea la nueva y revoca todas las sesiones", async () => {
+      vi.mocked(authRepo.findById).mockResolvedValue(makeUser());
+      vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
+      vi.mocked(bcrypt.hash).mockResolvedValue("$2b$12$newhashedpassword" as never);
+
+      await service.changePassword("user-1", input);
+
+      expect(bcrypt.compare).toHaveBeenCalledWith(
+        "OldPassword1",
+        "$2b$12$hashedpassword",
+      );
+      expect(bcrypt.hash).toHaveBeenCalledWith("NewPassword1", 12);
+      expect(authRepo.updatePassword).toHaveBeenCalledWith(
+        "user-1",
+        "$2b$12$newhashedpassword",
+      );
+      expect(refreshTokenRepo.revokeAllForUser).toHaveBeenCalledWith("user-1");
+    });
+
+    it("nunca guarda la nueva contraseña en texto plano", async () => {
+      vi.mocked(authRepo.findById).mockResolvedValue(makeUser());
+      vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
+      vi.mocked(bcrypt.hash).mockResolvedValue("$2b$12$newhashedpassword" as never);
+
+      await service.changePassword("user-1", input);
+
+      const hashArg = vi.mocked(bcrypt.hash).mock.calls[0][0];
+      expect(hashArg).toBe("NewPassword1");
+      const updateArg = vi.mocked(authRepo.updatePassword).mock.calls[0][1];
+      expect(updateArg).toBe("$2b$12$newhashedpassword");
+      expect(updateArg).not.toBe("NewPassword1");
+    });
+  });
 });

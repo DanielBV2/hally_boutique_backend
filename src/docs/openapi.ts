@@ -243,6 +243,28 @@ export const openapiDocument: oas30.OpenAPIObject = {
       },
     },
 
+    "/api/auth/me/password": {
+      patch: {
+        tags: ["Auth"],
+        summary: "Cambiar contraseña del usuario autenticado",
+        description:
+          "Verifica la contraseña actual, la reemplaza por la nueva y revoca " +
+          "todas las sesiones (refresh tokens) del usuario.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": { schema: { $ref: "#/components/schemas/ChangePasswordRequest" } },
+          },
+        },
+        responses: {
+          "200": emptySuccessResponse("Contraseña actualizada"),
+          "400": errorResponse,
+          "401": errorResponse,
+          "404": errorResponse,
+        },
+      },
+    },
+
     "/api/auth/admin/all": {
       get: {
         tags: ["Auth"],
@@ -974,6 +996,15 @@ export const openapiDocument: oas30.OpenAPIObject = {
         minProperties: 1,
       },
 
+      ChangePasswordRequest: {
+        type: "object",
+        properties: {
+          currentPassword: { type: "string" },
+          newPassword: { type: "string", minLength: 8 },
+        },
+        required: ["currentPassword", "newPassword"],
+      },
+
       User: {
         type: "object",
         properties: {
@@ -1067,6 +1098,7 @@ export const openapiDocument: oas30.OpenAPIObject = {
           description: { type: "string" },
           basePrice: { type: "number" },
           currency: { type: "string" },
+          weightGrams: { type: "number" },
           category: {
             type: "object",
             properties: {

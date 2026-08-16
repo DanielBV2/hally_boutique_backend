@@ -18,6 +18,7 @@ export interface ProductDetailDTO {
   description: string;
   basePrice: number;
   currency: string;
+  weightGrams: number;
   category: { id: string; name: string; slug: string };
   images: { id: string; url: string; altText: string | null }[];
   variants: {
