@@ -273,6 +273,7 @@ export const openapiDocument: oas30.OpenAPIObject = {
           { name: "page", in: "query", schema: { type: "number", default: 1 } },
           { name: "limit", in: "query", schema: { type: "number", default: 20, maximum: 50 } },
           { name: "role", in: "query", schema: { type: "string", enum: ["CUSTOMER", "ADMIN"] } },
+          { name: "search", in: "query", schema: { type: "string" }, description: "Filtra por nombre, apellido o correo (case-insensitive)." },
         ],
         responses: {
           "200": successResponse("#/components/schemas/AdminUserListResponse"),

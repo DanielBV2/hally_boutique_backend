@@ -909,6 +909,27 @@ no podía ocultar/desocultar un producto sin borrarlo.
   isActive=false → 200 y el listado refleja false, PATCH isActive=true → 200
   y restaura. Sin cambios de esquema Prisma (isActive ya existía).
 
+## Search en GET /api/auth/admin/all (usuarios admin) — COMPLETADO Y VERIFICADO
+El listado admin de usuarios solo filtraba por role (CUSTOMER/ADMIN). Ahora
+acepta `search` (case-insensitive) para buscar por nombre, apellido o correo,
+manteniendo el endpoint SOLO LECTURA (no hay PATCH/DELETE de usuarios por
+diseño).
+
+- `adminUsersQuerySchema` (auth.schema.ts): gana `search: z.string().trim().min(1).optional()`.
+- `AuthFilters` (auth.repository.ts): gana `search?: string`; `findAllAdmin` arma
+  `where` con `role` (top-level) Y `OR` de email/firstName/lastName con `contains
+  + mode: "insensitive"` (mismo patrón que orders/products admin). Se combina con
+  role (Prisma AND de top-level keys).
+- `AuthRepository` importa `Prisma` para tipar `Prisma.UserWhereInput`.
+- Controller: `listUsersAdmin` arma `filters` con role y search solo cuando llegan.
+- openapi.ts: param `search` documentado en GET /auth/admin/all (descripción del
+  alcance: nombre, apellido o correo).
+- 1 test nuevo en `tests/unit/auth/auth.service.test.ts` (propaga search + role al
+  repository). 202/202 tests pasando, typecheck limpio. Verificado en vivo vía
+  BFF 3001: total sin filtro=18; firstName real → 1; local-part del email → 1;
+  "@test.co" case-insensitive → 16; search+role combinados → filtra bien;
+  término inexistente → 0. Sin cambios de esquema Prisma.
+
 ## Estado actual del proyecto (actualizado)
 
 - [x] Schema de Prisma completo y migrado

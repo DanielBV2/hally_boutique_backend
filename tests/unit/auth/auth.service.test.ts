@@ -627,6 +627,20 @@ describe("AuthServiceImpl", () => {
       );
     });
 
+    it("propaga el search al repository junto con el role", async () => {
+      vi.mocked(authRepo.findAllAdmin).mockResolvedValue({ users: [], total: 0 });
+
+      await service.listUsersAdmin(
+        { role: "CUSTOMER", search: "maria" },
+        { page: 1, limit: 20 },
+      );
+
+      expect(authRepo.findAllAdmin).toHaveBeenCalledWith(
+        { role: "CUSTOMER", search: "maria" },
+        { page: 1, limit: 20 },
+      );
+    });
+
     it("ningún AdminUserListItemDTO incluye passwordHash", async () => {
       const users = [
         makeUser({ id: "u1", role: "CUSTOMER" }),

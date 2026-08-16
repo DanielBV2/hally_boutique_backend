@@ -1,4 +1,4 @@
-import type { PrismaClient, User, Role } from "@prisma/client";
+import type { PrismaClient, User, Role, Prisma } from "@prisma/client";
 
 export interface CreateUserData {
   email: string;
@@ -17,6 +17,7 @@ export interface UpdateUserData {
 
 export interface AuthFilters {
   role?: Role;
+  search?: string;
 }
 
 export interface AuthPagination {
@@ -68,7 +69,15 @@ export class PrismaAuthRepository implements AuthRepository {
   async findAllAdmin(filters: AuthFilters, pagination: AuthPagination) {
     const { page, limit } = pagination;
     const skip = (page - 1) * limit;
-    const where = filters.role ? { role: filters.role } : {};
+    const where: Prisma.UserWhereInput = {};
+    if (filters.role) where.role = filters.role;
+    if (filters.search) {
+      where.OR = [
+        { email: { contains: filters.search, mode: "insensitive" } },
+        { firstName: { contains: filters.search, mode: "insensitive" } },
+        { lastName: { contains: filters.search, mode: "insensitive" } },
+      ];
+    }
 
     const [users, total] = await Promise.all([
       this.prisma.user.findMany({

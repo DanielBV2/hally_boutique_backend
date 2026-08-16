@@ -96,7 +96,9 @@ export class AuthController {
 
   listUsersAdmin = async (req: Request, res: Response) => {
     const query = req.query as unknown as AdminUsersQuery;
-    const filters = query.role ? { role: query.role } : {};
+    const filters: { role?: "CUSTOMER" | "ADMIN"; search?: string } = {};
+    if (query.role) filters.role = query.role;
+    if (query.search) filters.search = query.search;
     const result = await this.service.listUsersAdmin(filters, {
       page: query.page,
       limit: query.limit,
