@@ -349,6 +349,12 @@ export const openapiDocument: oas30.OpenAPIObject = {
           { name: "limit", in: "query", schema: { type: "number", default: 20, maximum: 50 } },
           { name: "isActive", in: "query", schema: { type: "boolean" } },
           { name: "categoryId", in: "query", schema: { type: "string", format: "uuid" } },
+          {
+            name: "search",
+            in: "query",
+            description: "Busca por nombre de producto (insensible a mayúsculas).",
+            schema: { type: "string" },
+          },
         ],
         responses: {
           "200": successResponse("#/components/schemas/ProductListResponse"),
@@ -842,6 +848,12 @@ export const openapiDocument: oas30.OpenAPIObject = {
               type: "string",
               enum: ["PENDING", "PAID", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED", "REFUNDED"],
             },
+          },
+          {
+            name: "search",
+            in: "query",
+            description: "Busca por id de orden, correo o nombre del cliente, o nombre de producto (insensible a mayúsculas).",
+            schema: { type: "string" },
           },
         ],
         responses: {

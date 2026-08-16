@@ -640,6 +640,20 @@ describe("OrderServiceImpl", () => {
         { page: 2, limit: 50 },
       );
     });
+
+    it("propaga el search combinado con status", async () => {
+      vi.mocked(orderRepo.findAllAdmin).mockResolvedValue({ orders: [], total: 0 });
+
+      await service.listAllOrdersAdmin(
+        { status: "PAID", search: "maria" },
+        { page: 1, limit: 20 },
+      );
+
+      expect(orderRepo.findAllAdmin).toHaveBeenCalledWith(
+        { status: "PAID", search: "maria" },
+        { page: 1, limit: 20 },
+      );
+    });
   });
 
   describe("getOrderByIdAdmin", () => {

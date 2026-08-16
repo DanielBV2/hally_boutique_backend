@@ -41,7 +41,7 @@ export interface ProductService {
     sort: SortOptions,
   ): Promise<{ items: ProductListItemDTO[]; total: number; page: number }>;
   listProductsAdmin(
-    filters: { isActive?: boolean; categoryId?: string },
+    filters: { isActive?: boolean; categoryId?: string; search?: string },
     pagination: Pagination,
   ): Promise<{ items: ProductListItemDTO[]; total: number }>;
   getProductBySlug(slug: string): Promise<ProductDetailDTO>;
@@ -113,7 +113,7 @@ export class ProductServiceImpl implements ProductService {
   }
 
   async listProductsAdmin(
-    filters: { isActive?: boolean; categoryId?: string },
+    filters: { isActive?: boolean; categoryId?: string; search?: string },
     pagination: Pagination,
   ) {
     const { products, total } = await this.repository.findManyAdmin(

@@ -56,7 +56,7 @@ export interface ProductRepository {
     sort: SortOptions,
   ): Promise<{ products: ProductWithListRelations[]; total: number }>;
   findManyAdmin(
-    filters: { isActive?: boolean; categoryId?: string },
+    filters: { isActive?: boolean; categoryId?: string; search?: string },
     pagination: Pagination,
   ): Promise<{ products: ProductWithListRelations[]; total: number }>;
   findBySlug(slug: string): Promise<ProductWithRelations | null>;
@@ -115,7 +115,7 @@ export class PrismaProductRepository implements ProductRepository {
   }
 
   async findManyAdmin(
-    filters: { isActive?: boolean; categoryId?: string },
+    filters: { isActive?: boolean; categoryId?: string; search?: string },
     pagination: Pagination,
   ) {
     const where: Prisma.ProductWhereInput = {};
@@ -125,6 +125,9 @@ export class PrismaProductRepository implements ProductRepository {
     }
     if (filters.categoryId) {
       where.categoryId = filters.categoryId;
+    }
+    if (filters.search) {
+      where.name = { contains: filters.search, mode: "insensitive" };
     }
 
     const { page, limit } = pagination;

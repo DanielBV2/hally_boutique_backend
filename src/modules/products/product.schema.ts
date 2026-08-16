@@ -35,6 +35,7 @@ export const adminProductsQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(50).default(20),
   isActive: z.coerce.boolean().optional(),
   categoryId: z.string().uuid().optional(),
+  search: z.string().optional(),
 });
 
 export type AdminProductsQuery = z.infer<typeof adminProductsQuerySchema>;

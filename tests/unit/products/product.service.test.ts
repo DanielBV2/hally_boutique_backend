@@ -187,6 +187,20 @@ describe("ProductServiceImpl", () => {
         pagination,
       );
     });
+
+    it("propaga el search al repository", async () => {
+      vi.mocked(productRepo.findManyAdmin).mockResolvedValue({ products: [], total: 0 });
+
+      await service.listProductsAdmin(
+        { isActive: true, categoryId: "cat-1", search: "camisa oxford" },
+        pagination,
+      );
+
+      expect(productRepo.findManyAdmin).toHaveBeenCalledWith(
+        { isActive: true, categoryId: "cat-1", search: "camisa oxford" },
+        pagination,
+      );
+    });
   });
 
   describe("getProductBySlug", () => {

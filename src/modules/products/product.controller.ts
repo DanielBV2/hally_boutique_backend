@@ -41,9 +41,10 @@ export class ProductController {
 
   listAdmin = async (req: Request, res: Response) => {
     const query = req.query as unknown as AdminProductsQuery;
-    const filters: { isActive?: boolean; categoryId?: string } = {};
+    const filters: { isActive?: boolean; categoryId?: string; search?: string } = {};
     if (query.isActive !== undefined) filters.isActive = query.isActive;
     if (query.categoryId !== undefined) filters.categoryId = query.categoryId;
+    if (query.search !== undefined) filters.search = query.search;
 
     const result = await this.service.listProductsAdmin(filters, {
       page: query.page,

@@ -4,6 +4,7 @@ import type { OrderStatus } from "@prisma/client";
 
 export interface OrderFilters {
   status?: OrderStatus;
+  search?: string;
 }
 
 export interface OrderRepository {
@@ -107,7 +108,30 @@ export class PrismaOrderRepository implements OrderRepository {
   async findAllAdmin(filters: OrderFilters, pagination: Pagination) {
     const { page, limit } = pagination;
     const skip = (page - 1) * limit;
-    const where = filters.status ? { status: filters.status } : {};
+    const where: Prisma.OrderWhereInput = {};
+
+    if (filters.status) {
+      where.status = filters.status;
+    }
+    if (filters.search) {
+      where.OR = [
+        { id: { contains: filters.search, mode: "insensitive" } },
+        { user: { email: { contains: filters.search, mode: "insensitive" } } },
+        {
+          user: {
+            OR: [
+              { firstName: { contains: filters.search, mode: "insensitive" } },
+              { lastName: { contains: filters.search, mode: "insensitive" } },
+            ],
+          },
+        },
+        {
+          items: {
+            some: { productName: { contains: filters.search, mode: "insensitive" } },
+          },
+        },
+      ];
+    }
 
     const [orders, total] = await Promise.all([
       this.prisma.order.findMany({

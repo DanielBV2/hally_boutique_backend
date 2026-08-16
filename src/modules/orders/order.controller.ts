@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import type { OrderService } from "./order.service.js";
+import type { OrderFilters } from "./order.repository.js";
 import type { ApiResponse } from "../../shared/types/api-response.js";
 import type {
   CreateOrderInput,
@@ -89,7 +90,9 @@ export class OrderController {
 
   listAllAdmin = async (req: Request, res: Response) => {
     const query = req.query as unknown as AdminOrdersQuery;
-    const filters = query.status ? { status: query.status } : {};
+    const filters: OrderFilters = {};
+    if (query.status) filters.status = query.status;
+    if (query.search) filters.search = query.search;
     const result = await this.service.listAllOrdersAdmin(filters, {
       page: query.page,
       limit: query.limit,
