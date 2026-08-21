@@ -8,11 +8,8 @@ import { NotFoundError, ConflictError, UnauthorizedError } from "../../shared/er
 import { env } from "../../config/env.js";
 import { generateIntegritySignature, verifyEventChecksum } from "../../shared/utils/wompiSignature.js";
 import { voidWompiTransaction } from "../../shared/utils/wompiClient.js";
-import { toDepartmentCode } from "../../shared/utils/colombiaDepartmentCodes.js";
-import { extractStreetNumber, generateShippingLabel } from "../../shared/utils/shippingClient.js";
-import { jobQueue as sharedJobQueue, type JobQueue } from "../../shared/utils/jobQueue.js";
+import type { JobQueue } from "../../shared/utils/jobQueue.js";
 import { logger } from "../../shared/utils/logger.js";
-import { buildPackagesFromOrder } from "../orders/order.service.js";
 
 export interface VariantStockRepository {
   decrementStockIfAvailable(
@@ -38,7 +35,7 @@ export class PaymentServiceImpl implements PaymentService {
     private readonly variantStockRepository: VariantStockRepository,
     private readonly transactionRunner: TransactionRunner,
     private readonly cartRepository: CartRepository,
-    private readonly jobQueue: JobQueue = sharedJobQueue,
+    private readonly jobQueue: JobQueue,
   ) {}
 
   async createCheckout(userId: string, orderId: string): Promise<CheckoutParamsDTO> {
@@ -126,6 +123,7 @@ export class PaymentServiceImpl implements PaymentService {
 
     switch (transaction.status) {
       case "APPROVED": {
+        const order = payment.order;
         let allStockAvailable = true;
         let claimed = false;
 
@@ -157,6 +155,16 @@ export class PaymentServiceImpl implements PaymentService {
               tx,
             );
             await this.cartRepository.clearCart(cart.id, tx);
+
+            // Encolado atómico con la transición a PAID (outbox): si el
+            // proceso muere después del commit, el job ya está persistido.
+            if (order.shippingCarrier && order.shippingService) {
+              await this.jobQueue.enqueue({
+                type: "GENERATE_SHIPPING_LABEL",
+                payload: { orderId: order.id },
+                uniqueKey: `shipping-label:${order.id}`,
+              }, tx);
+            }
           });
         } catch {
           if (!allStockAvailable) {
@@ -193,64 +201,9 @@ export class PaymentServiceImpl implements PaymentService {
 
         logger.info(
           { ...webhookLog, stockClaimed: true },
-          "[Payments] Pago APPROVED: Order PAID, stock descontado, carrito vaciado",
+          "[Payments] Pago APPROVED: Order PAID, stock descontado, carrito vaciado, guía de envío encolada",
         );
 
-        const order = payment.order;
-        if (order.shippingCarrier && order.shippingService) {
-          const carrier = order.shippingCarrier;
-          const service = order.shippingService;
-
-          this.jobQueue.schedule(`shipping-label:${order.id}`, async () => {
-            const origin = {
-              name: env.SHIPPING_ORIGIN_NAME,
-              phone: env.SHIPPING_ORIGIN_PHONE,
-              street: env.SHIPPING_ORIGIN_STREET,
-              number: env.SHIPPING_ORIGIN_NUMBER,
-              city: env.SHIPPING_ORIGIN_CITY,
-              state: toDepartmentCode(env.SHIPPING_ORIGIN_STATE),
-              country: env.SHIPPING_ORIGIN_COUNTRY,
-              postalCode: env.SHIPPING_ORIGIN_POSTALCODE,
-            };
-
-            const destination = {
-              name: order.shippingFullName,
-              phone: order.shippingPhone,
-              street: order.shippingLine1,
-              number: extractStreetNumber(order.shippingLine1),
-              city: order.shippingCity,
-              state: toDepartmentCode(order.shippingState),
-              country: order.shippingCountry,
-              postalCode: order.shippingPostalCode ?? "",
-            };
-
-            const packages = buildPackagesFromOrder(order);
-
-            const labelResult = await generateShippingLabel(
-              origin,
-              destination,
-              packages,
-              carrier,
-              service,
-            );
-
-            if (labelResult.success) {
-              await this.orderRepository.updateShippingLabel(order.id, {
-                shippingTrackingNumber: labelResult.trackingNumber ?? "",
-                shippingLabelUrl: labelResult.labelUrl ?? "",
-              });
-            } else {
-              await this.orderRepository.markShippingLabelFailed(order.id);
-              logger.error(
-                {
-                  ...webhookLog,
-                  reason: labelResult.error,
-                },
-                "GENERACIÓN DE GUÍA FALLIDA — Order. Generar manualmente desde el dashboard de Envia.com.",
-              );
-            }
-          });
-        }
         break;
       }
 

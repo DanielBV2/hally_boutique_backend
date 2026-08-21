@@ -47,6 +47,17 @@ enum PaymentStatus {
   REFUNDED
 }
 
+// ------------------------------------------------------------
+// BACKGROUND JOBS (outbox pattern)
+// ------------------------------------------------------------
+
+enum JobStatus {
+  PENDING
+  PROCESSING
+  DONE
+  FAILED
+}
+
 // Preparado para múltiples proveedores (Stripe hoy, Wompi/PayU después)
 enum PaymentProvider {
   STRIPE
@@ -349,4 +360,37 @@ model Payment {
   updatedAt             DateTime        @updatedAt
 
   @@map("payments")
+}
+
+// ------------------------------------------------------------
+// BACKGROUND JOBS (outbox pattern en Postgres)
+// ------------------------------------------------------------
+//
+// Sustituye a la cola en memoria: los jobs sobreviven reinicios/crashes
+// del proceso. El worker hace polling y reclama con FOR UPDATE SKIP LOCKED
+// (seguro para múltiples instancias del backend).
+//
+// type como String (no enum) a propósito: agregar un tipo de job nuevo
+// no debe requerir migración de schema, solo registrar un handler.
+
+model BackgroundJob {
+  id            String    @id @default(uuid())
+  type          String
+  payload       Json
+  status        JobStatus @default(PENDING)
+
+  // Idempotencia: si se intenta encolar dos veces el mismo job lógico,
+  // la segunda inserción falla/se ignora por este unique.
+  uniqueKey     String    @unique
+
+  attempts      Int       @default(0)
+  maxAttempts   Int       @default(5)
+  nextAttemptAt DateTime  @default(now())
+  lastError     String?
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([status, nextAttemptAt])
+  @@map("background_jobs")
 }

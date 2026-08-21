@@ -930,6 +930,44 @@ diseño).
   "@test.co" case-insensitive → 16; search+role combinados → filtra bien;
   término inexistente → 0. Sin cambios de esquema Prisma.
 
+## Cola de jobs persistente en Postgres (outbox pattern) — COMPLETADO
+
+Reemplazado InMemoryJobQueue (array en memoria) por un sistema de jobs
+persistido en Postgres. Motivo: si el proceso se reiniciaba o crasheaba
+mientras un job de generación de guía de envío estaba pendiente, el job
+se perdía silenciosamente — el pago quedaba aprobado pero la guía nunca
+se generaba, sin ningún rastro del fallo.
+
+Diseño elegido: outbox pattern genérico (tabla `background_jobs` con
+`type` + `payload` JSON), no específico a guías de envío — a futuro
+sirve para cualquier job nuevo (reintentos de email, sincronización de
+inventario, etc.) sin tocar el schema otra vez. Ejecución por polling
+puro (sin "empujón" en memoria) para mantener el diseño simple y ya
+preparado para correr múltiples instancias del backend sin duplicar
+trabajo (usa `FOR UPDATE SKIP LOCKED` al reclamar jobs).
+
+Encolar un job ahora se hace dentro de la misma transacción de Prisma
+que el cambio de estado de negocio (ej. Order → PAID en el webhook de
+Wompi), garantizando atomicidad: o ambos ocurren, o ninguno.
+
+Reintentos con backoff exponencial (1m, 2m, 4m... tope 1h), máximo 5
+intentos por default (`maxAttempts` configurable por job). Al agotar
+reintentos, el job queda en estado FAILED y se loguea como
+intervención manual requerida — mismo patrón que ya usábamos para
+fallos de guía de envío, ahora aplicado a cualquier tipo de job.
+
+Nuevas env vars: JOB_POLL_INTERVAL_MS (default 10000), JOB_BATCH_SIZE
+(default 5).
+
+La lógica de generación de guía (antes inline en payment.service.ts)
+se movió a src/jobs/handlers/generateShippingLabel.handler.ts como
+función standalone registrada en el worker vía composition root.
+
+Deuda técnica consciente: claimBatch() usa SQL crudo con
+FOR UPDATE SKIP LOCKED y no tiene test automatizado — requiere una
+DB de test real (igual que los repositories), no mocks de Prisma.
+Pendiente agregar ese test de integración.
+
 ## Estado actual del proyecto (actualizado)
 
 - [x] Schema de Prisma completo y migrado

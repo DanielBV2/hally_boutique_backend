@@ -26,13 +26,6 @@ vi.mock("../../../src/shared/utils/wompiClient.js", () => ({
   voidWompiTransaction: vi.fn(),
 }));
 
-vi.mock("../../../src/shared/utils/shippingClient.js", () => ({
-  generateShippingLabel: vi.fn(),
-  getShippingRate: vi.fn(),
-  getAllShippingRates: vi.fn(),
-  extractStreetNumber: vi.fn(),
-}));
-
 import { PaymentServiceImpl } from "../../../src/modules/payments/payment.service.js";
 import type { PaymentRepository } from "../../../src/modules/payments/payment.repository.js";
 import type { OrderRepository } from "../../../src/modules/orders/order.repository.js";
@@ -40,11 +33,10 @@ import type { VariantStockRepository, TransactionRunner } from "../../../src/mod
 import type { CartRepository } from "../../../src/modules/cart/cart.repository.js";
 import { logger } from "../../../src/shared/utils/logger.js";
 import type { OrderWithItems } from "../../../src/modules/orders/order.types.js";
-import { InMemoryJobQueue } from "../../../src/shared/utils/jobQueue.js";
+import type { JobQueue } from "../../../src/shared/utils/jobQueue.js";
 import { NotFoundError, ConflictError, UnauthorizedError } from "../../../src/shared/errors/app-error.js";
 import { generateIntegritySignature, verifyEventChecksum } from "../../../src/shared/utils/wompiSignature.js";
 import { voidWompiTransaction } from "../../../src/shared/utils/wompiClient.js";
-import { generateShippingLabel } from "../../../src/shared/utils/shippingClient.js";
 
 function mockPaymentRepo(): PaymentRepository {
   return {
@@ -91,6 +83,12 @@ function mockCartRepo(): CartRepository {
     updateItemQuantity: vi.fn(),
     removeItem: vi.fn(),
     clearCart: vi.fn(),
+  };
+}
+
+function mockJobQueue(): JobQueue {
+  return {
+    enqueue: vi.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -151,7 +149,7 @@ describe("PaymentServiceImpl", () => {
   let variantStockRepo: ReturnType<typeof mockVariantStockRepo>;
   let txRunner: ReturnType<typeof mockTransactionRunner>;
   let cartRepo: ReturnType<typeof mockCartRepo>;
-  let jobQueue: InMemoryJobQueue;
+  let jobQueue: JobQueue;
   let service: PaymentServiceImpl;
 
   beforeEach(() => {
@@ -161,21 +159,8 @@ describe("PaymentServiceImpl", () => {
     variantStockRepo = mockVariantStockRepo();
     txRunner = mockTransactionRunner();
     cartRepo = mockCartRepo();
-    jobQueue = new InMemoryJobQueue();
+    jobQueue = mockJobQueue();
     service = new PaymentServiceImpl(paymentRepo, orderRepo, variantStockRepo, txRunner, cartRepo, jobQueue);
-  });
-
-  it("construye sin inyectar JobQueue (usa el singleton compartido)", () => {
-    expect(
-      () =>
-        new PaymentServiceImpl(
-          paymentRepo,
-          orderRepo,
-          variantStockRepo,
-          txRunner,
-          cartRepo,
-        ),
-    ).not.toThrow();
   });
 
   describe("createCheckout", () => {
@@ -281,10 +266,10 @@ describe("PaymentServiceImpl", () => {
       expect(orderRepo.updateStatus).not.toHaveBeenCalled();
       expect(paymentRepo.updateStatus).not.toHaveBeenCalled();
       expect(cartRepo.clearCart).not.toHaveBeenCalled();
-      expect(generateShippingLabel).not.toHaveBeenCalled();
+      expect(jobQueue.enqueue).not.toHaveBeenCalled();
     });
 
-    it("APPROVED + stock disponible → Order PAID, Payment SUCCEEDED, clearCart, guía generada", async () => {
+    it("APPROVED + stock disponible → Order PAID, Payment SUCCEEDED, clearCart, job de guía encolado en la transacción", async () => {
       vi.mocked(verifyEventChecksum).mockReturnValue(true);
       vi.mocked(paymentRepo.findByProviderReferenceId).mockResolvedValue({
         id: "pay-1",
@@ -298,49 +283,25 @@ describe("PaymentServiceImpl", () => {
       vi.mocked(variantStockRepo.decrementStockIfAvailable).mockResolvedValue(true);
       vi.mocked(orderRepo.tryTransitionToPaid).mockResolvedValue(true);
       vi.mocked(cartRepo.findOrCreateByUserId).mockResolvedValue({ id: "cart-1" } as any);
-      vi.mocked(generateShippingLabel).mockResolvedValue({
-        success: true,
-        trackingNumber: "track-123",
-        labelUrl: "https://envia.com/label/123",
-        trackUrl: "https://envia.com/track/123",
-      });
 
       await service.processWebhookEvent(makeWebhookEvent());
-      await jobQueue.drain();
 
       expect(orderRepo.tryTransitionToPaid).toHaveBeenCalledWith("order-1", expect.anything());
       expect(orderRepo.updateStatus).not.toHaveBeenCalledWith("order-1", "PAID");
       expect(paymentRepo.updateStatus).toHaveBeenCalledWith("pay-1", "SUCCEEDED", expect.anything());
       expect(cartRepo.clearCart).toHaveBeenCalledWith("cart-1", expect.anything());
-      expect(orderRepo.markShippingLabelFailed).not.toHaveBeenCalled();
-      expect(generateShippingLabel).toHaveBeenCalledWith(
-        expect.objectContaining({
-          name: "Hally Boutique",
-          state: "ATL",
-        }),
-        expect.objectContaining({
-          name: "Juan Pérez",
-          street: "Calle 123",
-          state: "ANT",
-        }),
-        expect.arrayContaining([
-          expect.objectContaining({
-            weight: 0.6,
-            weightUnit: "KG",
-            content: "Ropa",
-            declaredValue: 100000,
-          }),
-        ]),
-        "coordinadora",
-        "express",
+      expect(jobQueue.enqueue).toHaveBeenCalledTimes(1);
+      expect(jobQueue.enqueue).toHaveBeenCalledWith(
+        {
+          type: "GENERATE_SHIPPING_LABEL",
+          payload: { orderId: "order-1" },
+          uniqueKey: "shipping-label:order-1",
+        },
+        expect.anything(),
       );
-      expect(orderRepo.updateShippingLabel).toHaveBeenCalledWith("order-1", {
-        shippingTrackingNumber: "track-123",
-        shippingLabelUrl: "https://envia.com/label/123",
-      });
     });
 
-    it("APPROVED no bloquea el webhook en la generación de guía (job asíncrono)", async () => {
+    it("el job de guía se encola DESPUÉS de vaciar el carrito (mismo orden dentro de la transacción)", async () => {
       vi.mocked(verifyEventChecksum).mockReturnValue(true);
       vi.mocked(paymentRepo.findByProviderReferenceId).mockResolvedValue({
         id: "pay-1",
@@ -355,65 +316,38 @@ describe("PaymentServiceImpl", () => {
       vi.mocked(orderRepo.tryTransitionToPaid).mockResolvedValue(true);
       vi.mocked(cartRepo.findOrCreateByUserId).mockResolvedValue({ id: "cart-1" } as any);
 
-      let labelCompleted = false;
-      vi.mocked(generateShippingLabel).mockImplementation(async () => {
-        await new Promise((r) => setTimeout(r, 50));
-        labelCompleted = true;
-        return {
-          success: true,
-          trackingNumber: "track-123",
-          labelUrl: "https://envia.com/label/123",
-          trackUrl: "https://envia.com/track/123",
-        };
+      const callOrder: string[] = [];
+      vi.mocked(cartRepo.clearCart).mockImplementation(async () => {
+        callOrder.push("clearCart");
+      });
+      vi.mocked(jobQueue.enqueue).mockImplementation(async () => {
+        callOrder.push("enqueue");
       });
 
       await service.processWebhookEvent(makeWebhookEvent());
 
-      expect(labelCompleted).toBe(false);
-
-      await jobQueue.drain();
-      expect(labelCompleted).toBe(true);
-      expect(orderRepo.updateShippingLabel).toHaveBeenCalledWith("order-1", {
-        shippingTrackingNumber: "track-123",
-        shippingLabelUrl: "https://envia.com/label/123",
-      });
+      expect(callOrder).toEqual(["clearCart", "enqueue"]);
     });
 
-    it("APPROVED + guía fallida → Order sigue en PAID, shippingStatus LABEL_FAILED, logger.error con GENERACIÓN DE GUÍA FALLIDA", async () => {
+    it("APPROVED sin envío seleccionado → no encola job de guía", async () => {
       vi.mocked(verifyEventChecksum).mockReturnValue(true);
       vi.mocked(paymentRepo.findByProviderReferenceId).mockResolvedValue({
         id: "pay-1",
         order: makeOrder({
           userId: "user-1",
-          shippingCarrier: "coordinadora",
-          shippingService: "express",
+          shippingCarrier: null,
+          shippingService: null,
           items: [{ variantId: "v1", quantity: 2, weightGrams: 300 } as any],
         }),
       } as any);
       vi.mocked(variantStockRepo.decrementStockIfAvailable).mockResolvedValue(true);
       vi.mocked(orderRepo.tryTransitionToPaid).mockResolvedValue(true);
       vi.mocked(cartRepo.findOrCreateByUserId).mockResolvedValue({ id: "cart-1" } as any);
-      vi.mocked(generateShippingLabel).mockResolvedValue({
-        success: false,
-        error: "envia.com timeout",
-      });
-
-      const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
 
       await service.processWebhookEvent(makeWebhookEvent());
-      await jobQueue.drain();
 
-      expect(orderRepo.tryTransitionToPaid).toHaveBeenCalledWith("order-1", expect.anything());
-      expect(orderRepo.updateStatus).not.toHaveBeenCalledWith("order-1", "CANCELLED");
       expect(paymentRepo.updateStatus).toHaveBeenCalledWith("pay-1", "SUCCEEDED", expect.anything());
-      expect(orderRepo.updateShippingLabel).not.toHaveBeenCalled();
-      expect(orderRepo.markShippingLabelFailed).toHaveBeenCalledWith("order-1");
-      expect(errorSpy).toHaveBeenCalledWith(
-        expect.objectContaining({ orderId: "order-1" }),
-        expect.stringContaining("GENERACIÓN DE GUÍA FALLIDA"),
-      );
-
-      errorSpy.mockRestore();
+      expect(jobQueue.enqueue).not.toHaveBeenCalled();
     });
 
     it("APPROVED + sin stock + void exitoso → Payment REFUNDED, Order CANCELLED", async () => {

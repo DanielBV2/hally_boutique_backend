@@ -1,77 +1,66 @@
 import { describe, it, expect, vi } from "vitest";
-import { InMemoryJobQueue, jobQueue } from "../../../src/shared/utils/jobQueue.js";
-import { logger } from "../../../src/shared/utils/logger.js";
+import type { PrismaClient } from "@prisma/client";
+import { PrismaJobQueue } from "../../../src/shared/utils/jobQueue.js";
 
-describe("InMemoryJobQueue", () => {
-  it("schedule no bloquea: el job se procesa en background", async () => {
-    const queue = new InMemoryJobQueue();
-    let completed = false;
+function mockPrisma() {
+  return {
+    backgroundJob: {
+      upsert: vi.fn().mockResolvedValue({}),
+    },
+  };
+}
 
-    queue.schedule("job-1", async () => {
-      await new Promise((r) => setTimeout(r, 30));
-      completed = true;
+describe("PrismaJobQueue", () => {
+  it("enqueue llama upsert con type/payload/uniqueKey correctos", async () => {
+    const prisma = mockPrisma();
+    const queue = new PrismaJobQueue(prisma as unknown as PrismaClient);
+
+    await queue.enqueue({
+      type: "GENERATE_SHIPPING_LABEL",
+      payload: { orderId: "order-1" },
+      uniqueKey: "shipping-label:order-1",
     });
 
-    expect(completed).toBe(false);
-    await queue.drain();
-    expect(completed).toBe(true);
+    expect(prisma.backgroundJob.upsert).toHaveBeenCalledTimes(1);
+    expect(prisma.backgroundJob.upsert).toHaveBeenCalledWith({
+      where: { uniqueKey: "shipping-label:order-1" },
+      create: {
+        type: "GENERATE_SHIPPING_LABEL",
+        payload: { orderId: "order-1" },
+        uniqueKey: "shipping-label:order-1",
+      },
+      update: {},
+    });
   });
 
-  it("procesa los jobs en orden FIFO", async () => {
-    const queue = new InMemoryJobQueue();
-    const order: string[] = [];
+  it("enqueue usa el cliente de transacción cuando se pasa tx (outbox atómico)", async () => {
+    const prisma = mockPrisma();
+    const queue = new PrismaJobQueue(prisma as unknown as PrismaClient);
+    const tx = {
+      backgroundJob: {
+        upsert: vi.fn().mockResolvedValue({}),
+      },
+    };
 
-    queue.schedule("job-a", async () => {
-      order.push("a");
-    });
-    queue.schedule("job-b", async () => {
-      order.push("b");
-    });
-
-    await queue.drain();
-    expect(order).toEqual(["a", "b"]);
-  });
-
-  it("no deja que un job que falla detenga a los siguientes", async () => {
-    const queue = new InMemoryJobQueue();
-    const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
-    const ran: string[] = [];
-
-    queue.schedule("job-fail", async () => {
-      throw new Error("boom");
-    });
-    queue.schedule("job-ok", async () => {
-      ran.push("ok");
-    });
-
-    await queue.drain();
-
-    expect(ran).toEqual(["ok"]);
-    expect(errorSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ jobId: "job-fail" }),
-      "[JobQueue] Job 'job-fail' failed",
+    await queue.enqueue(
+      { type: "GENERATE_SHIPPING_LABEL", payload: { orderId: "order-2" }, uniqueKey: "shipping-label:order-2" },
+      tx as never,
     );
-    errorSpy.mockRestore();
+
+    expect(tx.backgroundJob.upsert).toHaveBeenCalledTimes(1);
+    expect(prisma.backgroundJob.upsert).not.toHaveBeenCalled();
   });
 
-  it("drain espera a que todos los jobs pendientes terminen", async () => {
-    const queue = new InMemoryJobQueue();
-    const results: number[] = [];
+  it("job duplicado es no-op silencioso (update vacío, sin lanzar error)", async () => {
+    const prisma = mockPrisma();
+    const queue = new PrismaJobQueue(prisma as unknown as PrismaClient);
 
-    for (let i = 0; i < 3; i++) {
-      queue.schedule(`job-${i}`, async () => {
-        await new Promise((r) => setTimeout(r, 10));
-        results.push(i);
-      });
+    await queue.enqueue({ type: "T", payload: {}, uniqueKey: "dup-key" });
+    await queue.enqueue({ type: "T", payload: {}, uniqueKey: "dup-key" });
+
+    expect(prisma.backgroundJob.upsert).toHaveBeenCalledTimes(2);
+    for (const call of prisma.backgroundJob.upsert.mock.calls) {
+      expect(call[0].update).toEqual({});
     }
-
-    await queue.drain();
-    expect(results).toEqual([0, 1, 2]);
-  });
-});
-
-describe("jobQueue singleton", () => {
-  it("es una instancia compartida de InMemoryJobQueue", () => {
-    expect(jobQueue).toBeInstanceOf(InMemoryJobQueue);
   });
 });

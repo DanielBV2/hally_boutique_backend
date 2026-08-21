@@ -1,46 +1,32 @@
-import { logger } from "./logger.js";
+import type { PrismaClient, Prisma } from "@prisma/client";
+
+export interface EnqueueJobInput {
+  type: string;
+  payload: unknown;
+  uniqueKey: string;
+}
 
 export interface JobQueue {
-  schedule(id: string, run: () => Promise<void>): void;
-  drain(): Promise<void>;
+  // Debe poder llamarse dentro de una transacción de Prisma existente,
+  // para que "cambio de estado de negocio" + "job encolado" sean atómicos.
+  enqueue(input: EnqueueJobInput, tx?: Prisma.TransactionClient): Promise<void>;
 }
 
-interface JobEntry {
-  id: string;
-  run: () => Promise<void>;
-}
+export class PrismaJobQueue implements JobQueue {
+  constructor(private readonly prisma: PrismaClient) {}
 
-export class InMemoryJobQueue implements JobQueue {
-  private readonly jobs: JobEntry[] = [];
-  private processing = false;
-
-  schedule(id: string, run: () => Promise<void>): void {
-    this.jobs.push({ id, run });
-    void this.runLoop();
-  }
-
-  async drain(): Promise<void> {
-    while (this.processing || this.jobs.length > 0) {
-      await new Promise((resolve) => setTimeout(resolve, 5));
-    }
-  }
-
-  private async runLoop(): Promise<void> {
-    if (this.processing) return;
-    this.processing = true;
-    try {
-      while (this.jobs.length > 0) {
-        const job = this.jobs.shift()!;
-        try {
-          await job.run();
-        } catch (err) {
-          logger.error({ jobId: job.id, err }, `[JobQueue] Job '${job.id}' failed`);
-        }
-      }
-    } finally {
-      this.processing = false;
-    }
+  async enqueue(input: EnqueueJobInput, tx?: Prisma.TransactionClient): Promise<void> {
+    const client = tx ?? this.prisma;
+    // Si ya existe un job con ese uniqueKey, es un no-op silencioso
+    // (idempotencia) — no lanza error ni duplica el job.
+    await client.backgroundJob.upsert({
+      where: { uniqueKey: input.uniqueKey },
+      create: {
+        type: input.type,
+        payload: input.payload as Prisma.InputJsonValue,
+        uniqueKey: input.uniqueKey,
+      },
+      update: {},
+    });
   }
 }
-
-export const jobQueue: JobQueue = new InMemoryJobQueue();

@@ -31,6 +31,10 @@ import { PaymentController } from "../modules/payments/payment.controller.js";
 import { PrismaMetricsRepository } from "../modules/metrics/metrics.repository.js";
 import { MetricsServiceImpl } from "../modules/metrics/metrics.service.js";
 import { MetricsController } from "../modules/metrics/metrics.controller.js";
+import { PrismaJobQueue } from "../shared/utils/jobQueue.js";
+import { JobWorker } from "../shared/utils/jobWorker.js";
+import { createGenerateShippingLabelHandler } from "../jobs/handlers/generateShippingLabel.handler.js";
+import { env } from "../config/env.js";
 
 const authRepository = new PrismaAuthRepository(prisma);
 const refreshTokenRepository = new PrismaRefreshTokenRepository(prisma);
@@ -47,6 +51,16 @@ const metricsRepository = new PrismaMetricsRepository(prisma);
 const transactionRunner: TransactionRunner = {
   runTransaction: (fn) => prisma.$transaction(fn),
 };
+
+const jobQueue = new PrismaJobQueue(prisma);
+const jobWorker = new JobWorker(prisma, {
+  pollIntervalMs: env.JOB_POLL_INTERVAL_MS,
+  batchSize: env.JOB_BATCH_SIZE,
+});
+jobWorker.register(
+  "GENERATE_SHIPPING_LABEL",
+  createGenerateShippingLabelHandler({ orderRepository }),
+);
 
 const authService = new AuthServiceImpl(
   authRepository,
@@ -65,6 +79,7 @@ const paymentService = new PaymentServiceImpl(
   variantRepository,
   transactionRunner,
   cartRepository,
+  jobQueue,
 );
 const metricsService = new MetricsServiceImpl(metricsRepository);
 
@@ -78,4 +93,5 @@ export const container = {
   orderController: new OrderController(orderService),
   paymentController: new PaymentController(paymentService),
   metricsController: new MetricsController(metricsService),
+  jobWorker,
 };
