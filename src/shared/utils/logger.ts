@@ -9,6 +9,18 @@ export function resolveLogLevel(nodeEnv?: string, logLevel?: string): string {
 
 export const logger = pino({
   level: resolveLogLevel(process.env.NODE_ENV, process.env.LOG_LEVEL),
+  redact: {
+    paths: [
+      "req.headers.authorization",
+      "req.headers.cookie",
+      'res.headers["set-cookie"]',
+      "*.password",
+      "*.token",
+      "*.accessToken",
+      "*.refreshToken",
+    ],
+    censor: "[REDACTED]",
+  },
   ...(process.env.NODE_ENV === "development"
     ? {
         transport: {

@@ -968,6 +968,39 @@ FOR UPDATE SKIP LOCKED y no tiene test automatizado — requiere una
 DB de test real (igual que los repositories), no mocks de Prisma.
 Pendiente agregar ese test de integración.
 
+## Logger: redacción de headers sensibles + log commiteado removido — COMPLETADO
+
+Se encontró backend-dev.log commiteado al repo (36 KB de logs de
+desarrollo local). Al revisarlo completo se detectó que contenía JWTs
+completos en texto plano dentro del header Authorization de varias
+peticiones — causa raíz: pinoHttp no tenía configurada ninguna
+redacción, así que cualquier sesión de desarrollo con `npm run dev`
+logueaba credenciales sin protección alguna.
+
+Los tokens expuestos en ese log específico ya estaban vencidos al
+momento de encontrarlos (JWT de vida corta, 15 min, generados el
+12/08/2026 — sin riesgo real hoy). Por eso se decidió NO purgar el
+historial de git (git filter-repo/BFG): el costo de un force-push
+invasivo (rompe forks/clones existentes, requiere desactivar
+temporalmente el branch protection recién configurado) no se
+justificaba frente a un riesgo ya nulo. Si el repo pasa a ser público
+en el futuro, evaluar purgar el historial como tarea aparte por
+higiene, no por riesgo real de esos tokens puntuales.
+
+Cambios:
+- src/shared/utils/logger.ts: agregada opción `redact` a la instancia
+  de pino — cubre req.headers.authorization, req.headers.cookie,
+  res.headers["set-cookie"], y wildcards (*.password, *.token,
+  *.accessToken, *.refreshToken) como red de seguridad para logging
+  manual futuro fuera del middleware HTTP.
+- .gitignore: agregado `*.log` (antes no existía ninguna regla para
+  logs, por eso el archivo se coló en un commit).
+- backend-dev.log removido del tracking de git (`git rm --cached`,
+  el archivo se mantiene en disco localmente, solo dejó de trackearse).
+
+Verificado manualmente: request autenticado en dev muestra
+"[REDACTED]" en el log en vez del JWT.
+
 ## Estado actual del proyecto (actualizado)
 
 - [x] Schema de Prisma completo y migrado
