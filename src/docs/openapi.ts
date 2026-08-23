@@ -72,19 +72,48 @@ export const openapiDocument: oas30.OpenAPIObject = {
   ],
   security: bearerAuth,
   paths: {
-    "/api/health": {
+    "/health": {
       get: {
         tags: ["Auth"],
         summary: "Health check",
+        description:
+          "Verifica que el servicio está vivo y que la base de datos responde (ping real con timeout de 3s). Usado por orquestadores (K8s, Railway, Render).",
         security: noAuth,
         responses: {
           "200": {
-            description: "Servicio vivo",
+            description: "Servicio vivo y base de datos accesible",
             content: {
               "application/json": {
                 schema: {
                   type: "object",
-                  properties: { status: { type: "string", enum: ["ok"] } },
+                  properties: {
+                    status: { type: "string", enum: ["ok"] },
+                    checks: {
+                      type: "object",
+                      properties: {
+                        database: { type: "string", enum: ["ok"] },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "503": {
+            description: "Base de datos inaccesible o ping expirado",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    status: { type: "string", enum: ["error"] },
+                    checks: {
+                      type: "object",
+                      properties: {
+                        database: { type: "string", enum: ["unreachable"] },
+                      },
+                    },
+                  },
                 },
               },
             },
