@@ -23,7 +23,7 @@ function makeCart(userId: string, items: CartWithItems["items"] = []): CartWithI
     createdAt: new Date("2026-01-01"),
     updatedAt: new Date("2026-01-01"),
     items,
-  } as CartWithItems;
+  };
 }
 
 function makeCartItem(overrides: Record<string, unknown> = {}) {

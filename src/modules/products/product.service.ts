@@ -186,16 +186,7 @@ export class ProductServiceImpl implements ProductService {
 
     const product = await this.repository.update(
       id,
-      updateData as Partial<{
-        name: string;
-        slug: string;
-        description: string;
-        basePrice: number;
-        currency: string;
-        weightGrams: number;
-        categoryId: string;
-        isActive: boolean;
-      }>,
+      updateData,
     );
     return toDetailDTO(product);
   }

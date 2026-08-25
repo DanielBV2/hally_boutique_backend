@@ -1,4 +1,4 @@
-import { PrismaClient, Prisma } from "@prisma/client";
+import { type PrismaClient, type Prisma } from "@prisma/client";
 
 export interface ProductFilters {
   categoryId: string | undefined;

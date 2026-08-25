@@ -1001,6 +1001,22 @@ Cambios:
 Verificado manualmente: request autenticado en dev muestra
 "[REDACTED]" en el log en vez del JWT.
 
+## README de onboarding — COMPLETADO
+
+Agregado README.md en la raíz del proyecto. Antes de esto no existía
+ningún punto de entrada para alguien nuevo (o para mí mismo en unos
+meses) que necesitara levantar el proyecto desde cero — solo estaba
+CLAUDE.md, que documenta decisiones de arquitectura pero no es una
+guía de setup.
+
+Contenido: stack, arquitectura (con link a CLAUDE.md para el detalle),
+requisitos, pasos de setup local, tabla de scripts de package.json,
+resumen de los grupos de variables de entorno (con link a .env.example
+para el detalle completo), cómo correr tests, y nota sobre el flujo de
+PR obligatorio por el branch protection activo desde la mejora #22.
+
+Incluye el badge de CI (mejora #22) apuntando al workflow real.
+
 ## Estado actual del proyecto (actualizado)
 
 - [x] Schema de Prisma completo y migrado

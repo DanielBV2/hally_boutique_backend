@@ -1,4 +1,4 @@
-import { PrismaClient, Prisma } from "@prisma/client";
+import { type PrismaClient, type Prisma } from "@prisma/client";
 import type { CreateOrderData, OrderWithItems, Pagination, AdminOrderWithUser } from "./order.types.js";
 import type { OrderStatus } from "@prisma/client";
 

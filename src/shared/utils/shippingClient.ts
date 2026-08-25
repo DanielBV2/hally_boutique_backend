@@ -2,7 +2,7 @@ import { fetchWithRetry } from "./httpClient.js";
 import { logger } from "./logger.js";
 
 export function extractStreetNumber(line1: string): string {
-  const match = line1.match(/\d+/);
+  const match = /\d+/.exec(line1);
   return match ? match[0] : "S/N";
 }
 
@@ -39,7 +39,7 @@ export async function getShippingRate(
       },
       { timeoutMs: 8_000, retries: 1 },
     );
-    const json = (await response.json()) as { data?: Array<Record<string, unknown>> };
+    const json = (await response.json()) as { data?: Record<string, unknown>[] };
     if (!response.ok || !json.data) {
       logger.warn(
         { carrier, status: response.status },
@@ -110,7 +110,7 @@ export async function generateShippingLabel(
     );
     const json = (await response.json()) as {
       meta?: string;
-      data?: Array<Record<string, unknown>>;
+      data?: Record<string, unknown>[];
     };
     if (!response.ok || json.meta === "error" || !json.data?.[0]) {
       return { success: false, error: JSON.stringify(json) };
@@ -135,7 +135,7 @@ export async function getAllShippingRates(
   destination: object,
   packages: object[],
 ): Promise<ShippingRateOption[]> {
-  const carriers = (process.env.SHIPPING_CARRIERS || "")
+  const carriers = (process.env.SHIPPING_CARRIERS ?? "")
     .split(",")
     .map((c) => c.trim());
   const results = await Promise.all(

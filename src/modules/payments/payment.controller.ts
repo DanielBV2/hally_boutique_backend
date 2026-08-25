@@ -18,7 +18,7 @@ export class PaymentController {
   };
 
   webhook = async (req: Request, res: Response) => {
-    await this.service.processWebhookEvent(req.body, String(req.id ?? ""));
+    await this.service.processWebhookEvent(req.body, String(req.id ?? "")); // eslint-disable-line @typescript-eslint/no-base-to-string
 
     const body: ApiResponse<null> = {
       success: true,

@@ -1,9 +1,9 @@
 import type {
   VariantRepository,
-  CreateVariantData,
 } from "./variant.repository.js";
 import type { ProductRepository } from "./product.repository.js";
 import type { VariantAdminDTO } from "./variant.dto.js";
+import type { Prisma, Size } from "@prisma/client";
 import {
   ConflictError,
   NotFoundError,
@@ -41,7 +41,7 @@ export interface VariantService {
 }
 
 function toAdminDTO(
-  variant: { id: string; size: string; color: string; sku: string; stock: number; priceDelta: import("@prisma/client").Prisma.Decimal; isActive: boolean },
+  variant: { id: string; size: string; color: string; sku: string; stock: number; priceDelta: Prisma.Decimal; isActive: boolean },
   basePrice: number,
 ): VariantAdminDTO {
   return {
@@ -79,7 +79,7 @@ export class VariantServiceImpl implements VariantService {
     data: CreateVariantInput,
   ): Promise<VariantAdminDTO> {
     const product = await this.productRepo.findById(productId);
-    if (!product || !product.isActive) {
+    if (!product?.isActive) {
       throw new NotFoundError("Product");
     }
 
@@ -122,7 +122,7 @@ export class VariantServiceImpl implements VariantService {
     }
 
     const variant = await this.variantRepo.create(productId, {
-      size: data.size as import("@prisma/client").Size,
+      size: data.size as Size,
       color: data.color,
       sku,
       stock: data.stock,
@@ -143,12 +143,12 @@ export class VariantServiceImpl implements VariantService {
     }
 
     const existing = await this.variantRepo.findById(variantId);
-    if (!existing || existing.productId !== productId) {
+    if (existing?.productId !== productId) {
       throw new NotFoundError("Variant");
     }
 
     const basePrice = Number(product.basePrice);
-    const priceDelta = data.priceDelta !== undefined ? data.priceDelta : Number(existing.priceDelta);
+    const priceDelta = data.priceDelta ?? Number(existing.priceDelta);
     const finalPrice = basePrice + priceDelta;
 
     if (finalPrice <= 0) {
@@ -183,7 +183,7 @@ export class VariantServiceImpl implements VariantService {
     }
 
     const existing = await this.variantRepo.findById(variantId);
-    if (!existing || existing.productId !== productId) {
+    if (existing?.productId !== productId) {
       throw new NotFoundError("Variant");
     }
 

@@ -73,7 +73,7 @@ export class AddressServiceImpl implements AddressService {
 
   async updateAddress(userId: string, addressId: string, data: UpdateAddressInput) {
     const existing = await this.repository.findById(addressId);
-    if (!existing || existing.userId !== userId) {
+    if (existing?.userId !== userId) {
       throw new NotFoundError("Address");
     }
 
@@ -98,7 +98,7 @@ export class AddressServiceImpl implements AddressService {
 
   async deleteAddress(userId: string, addressId: string) {
     const existing = await this.repository.findById(addressId);
-    if (!existing || existing.userId !== userId) {
+    if (existing?.userId !== userId) {
       throw new NotFoundError("Address");
     }
 

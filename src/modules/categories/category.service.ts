@@ -74,7 +74,7 @@ export class CategoryServiceImpl implements CategoryService {
 
   async getById(id: string) {
     const category = await this.repository.findById(id);
-    if (!category || !category.isActive) {
+    if (!category?.isActive) {
       throw new NotFoundError("Category");
     }
     return toDTO(category);
@@ -100,7 +100,7 @@ export class CategoryServiceImpl implements CategoryService {
 
   async updateCategory(id: string, data: UpdateCategoryInput) {
     const existing = await this.repository.findById(id);
-    if (!existing || !existing.isActive) {
+    if (!existing?.isActive) {
       throw new NotFoundError("Category");
     }
 
@@ -128,7 +128,7 @@ export class CategoryServiceImpl implements CategoryService {
 
   async deleteCategory(id: string) {
     const existing = await this.repository.findById(id);
-    if (!existing || !existing.isActive) {
+    if (!existing?.isActive) {
       throw new NotFoundError("Category");
     }
 

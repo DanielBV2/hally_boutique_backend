@@ -109,7 +109,7 @@ function makeAdminOrder(overrides: Partial<AdminOrderWithUser> = {}): AdminOrder
       lastName: "Gomez",
     },
     ...overrides,
-  } as AdminOrderWithUser;
+  };
 }
 
 function makeCartItem(overrides: Record<string, unknown> = {}) {
@@ -547,7 +547,7 @@ describe("OrderServiceImpl", () => {
         shippingCarrier: "coordinadora",
         shippingService: "express",
         shippingAmount: 12000,
-        shippingStatus: "LABEL_GENERATED" as any,
+        shippingStatus: "LABEL_GENERATED",
       });
       vi.mocked(orderRepo.findByIdWithItems).mockResolvedValue(order);
 

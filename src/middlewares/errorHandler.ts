@@ -19,7 +19,7 @@ function mapPrismaError(
       const fields = Array.isArray(target)
         ? target.join(", ")
         : target !== undefined
-          ? String(target)
+          ? String(target) // eslint-disable-line @typescript-eslint/no-base-to-string
           : "";
       return {
         statusCode: 409,

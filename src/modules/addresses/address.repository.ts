@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { type PrismaClient } from "@prisma/client";
 import type { Address } from "@prisma/client";
 import type { CreateAddressData } from "./address.types.js";
 

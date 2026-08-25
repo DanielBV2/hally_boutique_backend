@@ -100,7 +100,7 @@ export class CartServiceImpl implements CartService {
     const cart = await this.repository.findOrCreateByUserId(userId);
 
     const cartItem = await this.repository.findItemById(itemId);
-    if (!cartItem || cartItem.cartId !== cart.id) {
+    if (cartItem?.cartId !== cart.id) {
       throw new NotFoundError("CartItem");
     }
 
@@ -123,7 +123,7 @@ export class CartServiceImpl implements CartService {
     const cart = await this.repository.findOrCreateByUserId(userId);
 
     const cartItem = await this.repository.findItemById(itemId);
-    if (!cartItem || cartItem.cartId !== cart.id) {
+    if (cartItem?.cartId !== cart.id) {
       throw new NotFoundError("CartItem");
     }
 

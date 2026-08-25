@@ -19,7 +19,7 @@ export function authMiddleware(
 ): void {
   const authHeader = req.headers.authorization;
 
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+  if (!authHeader?.startsWith("Bearer ")) {
     next(new UnauthorizedError("Missing or invalid authorization header"));
     return;
   }

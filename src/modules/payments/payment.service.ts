@@ -1,4 +1,4 @@
-import type { PrismaClient, Prisma } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import type { CheckoutParamsDTO } from "./payment.dto.js";
 import { wompiWebhookSchema, type WompiWebhookInput } from "./payment.schema.js";
 import type { PaymentRepository } from "./payment.repository.js";
@@ -40,7 +40,7 @@ export class PaymentServiceImpl implements PaymentService {
 
   async createCheckout(userId: string, orderId: string): Promise<CheckoutParamsDTO> {
     const order = await this.orderRepository.findByIdWithItems(orderId);
-    if (!order || order.userId !== userId) {
+    if (order?.userId !== userId) {
       throw new NotFoundError("Order");
     }
 

@@ -36,5 +36,5 @@ export const DEPARTMENT_CODES: Record<string, string> = {
 };
 
 export function toDepartmentCode(departmentName: string): string {
-  return DEPARTMENT_CODES[departmentName] || departmentName.slice(0, 3).toUpperCase();
+  return DEPARTMENT_CODES[departmentName] ?? departmentName.slice(0, 3).toUpperCase();
 }

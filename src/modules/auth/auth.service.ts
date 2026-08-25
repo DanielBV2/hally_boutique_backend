@@ -229,7 +229,7 @@ export class AuthServiceImpl implements AuthService {
     const tokenHash = hashRefreshToken(refreshTokenPlain);
     const record = await this.refreshTokenRepository.findByHash(tokenHash);
 
-    if (!record || record.revokedAt !== null) {
+    if (record?.revokedAt !== null) {
       return;
     }
 

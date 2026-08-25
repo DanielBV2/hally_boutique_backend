@@ -27,7 +27,7 @@ import { AuthServiceImpl } from "../../../src/modules/auth/auth.service.js";
 import type { AuthRepository } from "../../../src/modules/auth/auth.repository.js";
 import type { RefreshTokenRepository } from "../../../src/modules/auth/refresh-token.repository.js";
 import type { PasswordResetTokenRepository } from "../../../src/modules/auth/password-reset-token.repository.js";
-import type { User, Role, RefreshToken, PasswordResetToken } from "@prisma/client";
+import type { User, RefreshToken, PasswordResetToken } from "@prisma/client";
 import {
   ConflictError,
   UnauthorizedError,
@@ -76,7 +76,7 @@ function makeUser(overrides: Partial<User> = {}): User {
     firstName: "Juan",
     lastName: "Pérez",
     phone: "3001234567",
-    role: "CUSTOMER" as Role,
+    role: "CUSTOMER",
     createdAt: new Date("2026-01-01"),
     updatedAt: new Date("2026-01-01"),
     ...overrides,
@@ -163,7 +163,7 @@ describe("AuthServiceImpl", () => {
       vi.mocked(bcrypt.hash).mockResolvedValue("$2b$12$hashedpassword" as never);
       vi.mocked(authRepo.create).mockResolvedValue(makeUser({ role: "CUSTOMER" }));
 
-      await service.register(input as any);
+      await service.register(input);
 
       const createCall = vi.mocked(authRepo.create).mock.calls[0][0];
       expect(createCall).not.toHaveProperty("role");
@@ -388,7 +388,7 @@ describe("AuthServiceImpl", () => {
       vi.mocked(authRepo.findByEmail).mockResolvedValue(makeUser());
       vi.mocked(sendPasswordResetEmail).mockResolvedValue({
         success: true,
-      } as never);
+      });
 
       await service.forgotPassword("test@example.com");
 
@@ -418,7 +418,7 @@ describe("AuthServiceImpl", () => {
       vi.mocked(sendPasswordResetEmail).mockResolvedValue({
         success: false,
         error: "Resend rate limited",
-      } as never);
+      });
 
       await expect(service.forgotPassword("test@example.com")).resolves.toBeUndefined();
 

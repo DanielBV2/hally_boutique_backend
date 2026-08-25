@@ -156,7 +156,7 @@ export class OrderServiceImpl implements OrderService {
 
   async getMyOrderById(userId: string, orderId: string) {
     const order = await this.orderRepository.findByIdWithItems(orderId);
-    if (!order || order.userId !== userId) {
+    if (order?.userId !== userId) {
       throw new NotFoundError("Order");
     }
     return toDetailDTO(order);
@@ -172,7 +172,7 @@ export class OrderServiceImpl implements OrderService {
     }
 
     const address = await this.addressRepository.findById(data.addressId);
-    if (!address || address.userId !== userId) {
+    if (address?.userId !== userId) {
       throw new NotFoundError("Address");
     }
 
@@ -237,7 +237,7 @@ export class OrderServiceImpl implements OrderService {
 
   async getShippingQuote(userId: string, orderId: string): Promise<ShippingRateOption[]> {
     const order = await this.orderRepository.findByIdWithItems(orderId);
-    if (!order || order.userId !== userId) {
+    if (order?.userId !== userId) {
       throw new NotFoundError("Order");
     }
     if (order.status !== "PENDING") {
@@ -285,7 +285,7 @@ export class OrderServiceImpl implements OrderService {
     data: ShippingSelectionInput,
   ): Promise<OrderDetailDTO> {
     const order = await this.orderRepository.findByIdWithItems(orderId);
-    if (!order || order.userId !== userId) {
+    if (order?.userId !== userId) {
       throw new NotFoundError("Order");
     }
     if (order.status !== "PENDING") {
@@ -353,7 +353,7 @@ export class OrderServiceImpl implements OrderService {
     data: UpdateOrderAddressInput,
   ): Promise<OrderDetailDTO> {
     const order = await this.orderRepository.findByIdWithItems(orderId);
-    if (!order || order.userId !== userId) {
+    if (order?.userId !== userId) {
       throw new NotFoundError("Order");
     }
     if (order.status !== "PENDING") {
@@ -361,7 +361,7 @@ export class OrderServiceImpl implements OrderService {
     }
 
     const address = await this.addressRepository.findById(data.addressId);
-    if (!address || address.userId !== userId) {
+    if (address?.userId !== userId) {
       throw new NotFoundError("Address");
     }
 
