@@ -16,11 +16,7 @@ router.use(authMiddleware);
 
 router.get("/", addressController.list);
 
-router.post(
-  "/",
-  validateSchemaMiddleware(createAddressSchema, "body"),
-  addressController.create,
-);
+router.post("/", validateSchemaMiddleware(createAddressSchema, "body"), addressController.create);
 
 router.patch(
   "/:id",

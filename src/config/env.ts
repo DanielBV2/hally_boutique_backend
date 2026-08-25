@@ -5,9 +5,7 @@ import { logger } from "../shared/utils/logger.js";
 dotenv.config();
 
 const envSchema = z.object({
-  NODE_ENV: z
-    .enum(["development", "production", "test"])
-    .default("development"),
+  NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   PORT: z.coerce.number().default(3000),
   DATABASE_URL: z.string().url(),
   JWT_SECRET: z.string().min(1, "JWT_SECRET is required"),
@@ -50,10 +48,7 @@ const envSchema = z.object({
 const parsed = envSchema.safeParse(process.env);
 
 if (!parsed.success) {
-  logger.error(
-    { errors: parsed.error.flatten().fieldErrors },
-    "Invalid environment variables",
-  );
+  logger.error({ errors: parsed.error.flatten().fieldErrors }, "Invalid environment variables");
   process.exit(1);
 }
 

@@ -7,16 +7,10 @@ export interface PasswordResetTokenRepository {
   markAsUsed(id: string): Promise<void>;
 }
 
-export class PrismaPasswordResetTokenRepository
-  implements PasswordResetTokenRepository
-{
+export class PrismaPasswordResetTokenRepository implements PasswordResetTokenRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
-  async create(
-    userId: string,
-    tokenHash: string,
-    expiresAt: Date,
-  ): Promise<PasswordResetToken> {
+  async create(userId: string, tokenHash: string, expiresAt: Date): Promise<PasswordResetToken> {
     return this.prisma.passwordResetToken.create({
       data: { userId, tokenHash, expiresAt },
     });

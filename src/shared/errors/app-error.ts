@@ -64,30 +64,33 @@ export class AppError extends Error {
 
 export class NotFoundError extends AppError {
   constructor(resource: string) {
-    super(404, 'NOT_FOUND', `${resource} no encontrado`);
+    super(404, "NOT_FOUND", `${resource} no encontrado`);
   }
 }
 
 export class ValidationError extends AppError {
-  constructor(message: string, public readonly details?: unknown) {
-    super(400, 'VALIDATION_ERROR', message);
+  constructor(
+    message: string,
+    public readonly details?: unknown,
+  ) {
+    super(400, "VALIDATION_ERROR", message);
   }
 }
 
 export class UnauthorizedError extends AppError {
-  constructor(message = 'No autenticado') {
-    super(401, 'UNAUTHORIZED', message);
+  constructor(message = "No autenticado") {
+    super(401, "UNAUTHORIZED", message);
   }
 }
 
 export class ForbiddenError extends AppError {
-  constructor(message = 'No tienes permisos para esta acción') {
-    super(403, 'FORBIDDEN', message);
+  constructor(message = "No tienes permisos para esta acción") {
+    super(403, "FORBIDDEN", message);
   }
 }
 
 export class ConflictError extends AppError {
   constructor(message: string) {
-    super(409, 'CONFLICT', message); // ej. stock insuficiente, email duplicado
+    super(409, "CONFLICT", message); // ej. stock insuficiente, email duplicado
   }
 }

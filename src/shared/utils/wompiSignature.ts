@@ -1,4 +1,4 @@
-import { createHash } from 'crypto';
+import { createHash } from "crypto";
 
 export function generateIntegritySignature(
   reference: string,
@@ -7,7 +7,7 @@ export function generateIntegritySignature(
   integritySecret: string,
 ): string {
   const raw = `${reference}${amountInCents}${currency}${integritySecret}`;
-  return createHash('sha256').update(raw).digest('hex');
+  return createHash("sha256").update(raw).digest("hex");
 }
 
 export function verifyEventChecksum(
@@ -19,10 +19,10 @@ export function verifyEventChecksum(
   eventsSecret: string,
 ): boolean {
   const values = event.signature.properties.map((prop) => {
-    const path = prop.replace('transaction.', '');
+    const path = prop.replace("transaction.", "");
     return String(event.data.transaction[path]);
   });
-  const raw = values.join('') + event.timestamp + eventsSecret;
-  const computed = createHash('sha256').update(raw).digest('hex');
+  const raw = values.join("") + event.timestamp + eventsSecret;
+  const computed = createHash("sha256").update(raw).digest("hex");
   return computed === event.signature.checksum;
 }

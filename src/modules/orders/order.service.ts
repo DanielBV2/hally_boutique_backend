@@ -14,13 +14,14 @@ import type {
   ShippingSelectionInput,
   UpdateOrderAddressInput,
 } from "./order.schema.js";
-import type { OrderWithItems, CreateOrderItemData, AdminOrderWithUser, Pagination } from "./order.types.js";
+import type {
+  OrderWithItems,
+  CreateOrderItemData,
+  AdminOrderWithUser,
+  Pagination,
+} from "./order.types.js";
 import type { OrderStatus } from "@prisma/client";
-import {
-  NotFoundError,
-  ConflictError,
-  ValidationError,
-} from "../../shared/errors/app-error.js";
+import { NotFoundError, ConflictError, ValidationError } from "../../shared/errors/app-error.js";
 import { getAllShippingRates, type ShippingRateOption } from "../../shared/utils/shippingClient.js";
 import { getStaticShippingEstimate } from "../../shared/utils/staticShippingRates.js";
 import { toDepartmentCode } from "../../shared/utils/colombiaDepartmentCodes.js";
@@ -34,8 +35,16 @@ export interface OrderService {
   getMyOrderById(userId: string, orderId: string): Promise<OrderDetailDTO>;
   createOrderFromCart(userId: string, data: CreateOrderInput): Promise<OrderDetailDTO>;
   getShippingQuote(userId: string, orderId: string): Promise<ShippingRateOption[]>;
-  selectShipping(userId: string, orderId: string, data: ShippingSelectionInput): Promise<OrderDetailDTO>;
-  updateOrderAddress(userId: string, orderId: string, data: UpdateOrderAddressInput): Promise<OrderDetailDTO>;
+  selectShipping(
+    userId: string,
+    orderId: string,
+    data: ShippingSelectionInput,
+  ): Promise<OrderDetailDTO>;
+  updateOrderAddress(
+    userId: string,
+    orderId: string,
+    data: UpdateOrderAddressInput,
+  ): Promise<OrderDetailDTO>;
   listAllOrdersAdmin(
     filters: OrderFilters,
     pagination: Pagination,
@@ -156,23 +165,20 @@ export class OrderServiceImpl implements OrderService {
 
   async getMyOrderById(userId: string, orderId: string) {
     const order = await this.orderRepository.findByIdWithItems(orderId);
-    if (!order || order.userId !== userId) {
+    if (order?.userId !== userId) {
       throw new NotFoundError("Order");
     }
     return toDetailDTO(order);
   }
 
   async createOrderFromCart(userId: string, data: CreateOrderInput) {
-    const existing = await this.orderRepository.findByIdempotencyKey(
-      userId,
-      data.idempotencyKey,
-    );
+    const existing = await this.orderRepository.findByIdempotencyKey(userId, data.idempotencyKey);
     if (existing) {
       return toDetailDTO(existing);
     }
 
     const address = await this.addressRepository.findById(data.addressId);
-    if (!address || address.userId !== userId) {
+    if (address?.userId !== userId) {
       throw new NotFoundError("Address");
     }
 
@@ -206,10 +212,7 @@ export class OrderServiceImpl implements OrderService {
       });
     }
 
-    const subtotal = orderItems.reduce(
-      (sum, item) => sum + item.unitPrice * item.quantity,
-      0,
-    );
+    const subtotal = orderItems.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
     const taxAmount = Math.round(subtotal * env.TAX_RATE);
     const shippingAmount = 0;
     const total = subtotal + taxAmount + shippingAmount;
@@ -237,7 +240,7 @@ export class OrderServiceImpl implements OrderService {
 
   async getShippingQuote(userId: string, orderId: string): Promise<ShippingRateOption[]> {
     const order = await this.orderRepository.findByIdWithItems(orderId);
-    if (!order || order.userId !== userId) {
+    if (order?.userId !== userId) {
       throw new NotFoundError("Order");
     }
     if (order.status !== "PENDING") {
@@ -285,7 +288,7 @@ export class OrderServiceImpl implements OrderService {
     data: ShippingSelectionInput,
   ): Promise<OrderDetailDTO> {
     const order = await this.orderRepository.findByIdWithItems(orderId);
-    if (!order || order.userId !== userId) {
+    if (order?.userId !== userId) {
       throw new NotFoundError("Order");
     }
     if (order.status !== "PENDING") {
@@ -321,9 +324,7 @@ export class OrderServiceImpl implements OrderService {
     if (rates.length === 0) {
       rates = [getStaticShippingEstimate(order.shippingState, totalWeightGrams)];
     }
-    const match = rates.find(
-      (r) => r.carrier === data.carrier && r.service === data.service,
-    );
+    const match = rates.find((r) => r.carrier === data.carrier && r.service === data.service);
 
     if (!match) {
       throw new ConflictError(
@@ -332,8 +333,7 @@ export class OrderServiceImpl implements OrderService {
     }
 
     const subtotal = Number(order.subtotal);
-    const shippingAmount =
-      subtotal >= env.FREE_SHIPPING_THRESHOLD ? 0 : match.totalPrice;
+    const shippingAmount = subtotal >= env.FREE_SHIPPING_THRESHOLD ? 0 : match.totalPrice;
     const taxAmount = Number(order.taxAmount);
     const total = subtotal + taxAmount + shippingAmount;
 
@@ -353,7 +353,7 @@ export class OrderServiceImpl implements OrderService {
     data: UpdateOrderAddressInput,
   ): Promise<OrderDetailDTO> {
     const order = await this.orderRepository.findByIdWithItems(orderId);
-    if (!order || order.userId !== userId) {
+    if (order?.userId !== userId) {
       throw new NotFoundError("Order");
     }
     if (order.status !== "PENDING") {
@@ -361,7 +361,7 @@ export class OrderServiceImpl implements OrderService {
     }
 
     const address = await this.addressRepository.findById(data.addressId);
-    if (!address || address.userId !== userId) {
+    if (address?.userId !== userId) {
       throw new NotFoundError("Address");
     }
 

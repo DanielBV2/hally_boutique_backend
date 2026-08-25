@@ -82,30 +82,24 @@ function toDetailDTO(product: ProductWithRelations): ProductDetailDTO {
     weightGrams: product.weightGrams,
     category: product.category,
     images: product.images,
-    variants: product.variants.filter((v) => v.isActive).map((v) => ({
-      id: v.id,
-      size: v.size,
-      color: v.color,
-      stock: v.stock,
-      price: basePrice + Number(v.priceDelta),
-      inStock: v.stock > 0,
-    })),
+    variants: product.variants
+      .filter((v) => v.isActive)
+      .map((v) => ({
+        id: v.id,
+        size: v.size,
+        color: v.color,
+        stock: v.stock,
+        price: basePrice + Number(v.priceDelta),
+        inStock: v.stock > 0,
+      })),
   };
 }
 
 export class ProductServiceImpl implements ProductService {
   constructor(private readonly repository: ProductRepository) {}
 
-  async listProducts(
-    filters: ProductFilters,
-    pagination: Pagination,
-    sort: SortOptions,
-  ) {
-    const { products, total } = await this.repository.findMany(
-      filters,
-      pagination,
-      sort,
-    );
+  async listProducts(filters: ProductFilters, pagination: Pagination, sort: SortOptions) {
+    const { products, total } = await this.repository.findMany(filters, pagination, sort);
 
     return {
       items: products.map(toListItemDTO),
@@ -118,10 +112,7 @@ export class ProductServiceImpl implements ProductService {
     filters: { isActive?: boolean; categoryId?: string; search?: string },
     pagination: Pagination,
   ) {
-    const { products, total } = await this.repository.findManyAdmin(
-      filters,
-      pagination,
-    );
+    const { products, total } = await this.repository.findManyAdmin(filters, pagination);
 
     return {
       items: products.map(toListItemDTO),
@@ -138,16 +129,12 @@ export class ProductServiceImpl implements ProductService {
   }
 
   async createProduct(data: CreateProductInput) {
-    const categoryExists = await this.repository.categoryExists(
-      data.categoryId,
-    );
+    const categoryExists = await this.repository.categoryExists(data.categoryId);
     if (!categoryExists) {
       throw new NotFoundError("Category");
     }
 
-    const slug = await generateUniqueSlug(data.name, (slug) =>
-      this.repository.slugExists(slug),
-    );
+    const slug = await generateUniqueSlug(data.name, (slug) => this.repository.slugExists(slug));
 
     const product = await this.repository.create({ ...data, slug });
     return toDetailDTO(product);
@@ -160,9 +147,7 @@ export class ProductServiceImpl implements ProductService {
     }
 
     if (data.categoryId !== undefined) {
-      const categoryExists = await this.repository.categoryExists(
-        data.categoryId,
-      );
+      const categoryExists = await this.repository.categoryExists(data.categoryId);
       if (!categoryExists) {
         throw new NotFoundError("Category");
       }
@@ -184,19 +169,7 @@ export class ProductServiceImpl implements ProductService {
       );
     }
 
-    const product = await this.repository.update(
-      id,
-      updateData as Partial<{
-        name: string;
-        slug: string;
-        description: string;
-        basePrice: number;
-        currency: string;
-        weightGrams: number;
-        categoryId: string;
-        isActive: boolean;
-      }>,
-    );
+    const product = await this.repository.update(id, updateData);
     return toDetailDTO(product);
   }
 

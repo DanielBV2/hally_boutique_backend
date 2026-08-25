@@ -55,7 +55,9 @@ describe("CategoryServiceImpl", () => {
     it("genera slug sin tildes ni caracteres especiales con generateUniqueSlug real", async () => {
       vi.mocked(categoryRepo.nameExists).mockResolvedValue(false);
       vi.mocked(categoryRepo.slugExists).mockResolvedValue(false);
-      vi.mocked(categoryRepo.create).mockResolvedValue(makeCategory({ slug: "pantalon-deportivo" }));
+      vi.mocked(categoryRepo.create).mockResolvedValue(
+        makeCategory({ slug: "pantalon-deportivo" }),
+      );
 
       const result = await service.createCategory({ name: "Pantalón Deportivo" });
 
@@ -68,9 +70,7 @@ describe("CategoryServiceImpl", () => {
 
     it("genera slug con sufijo -2 cuando hay colisión en el slug base", async () => {
       vi.mocked(categoryRepo.nameExists).mockResolvedValue(false);
-      vi.mocked(categoryRepo.slugExists)
-        .mockResolvedValueOnce(true)
-        .mockResolvedValueOnce(false);
+      vi.mocked(categoryRepo.slugExists).mockResolvedValueOnce(true).mockResolvedValueOnce(false);
       vi.mocked(categoryRepo.create).mockResolvedValue(makeCategory({ slug: "camisetas-2" }));
 
       const result = await service.createCategory({ name: "Camisetas" });

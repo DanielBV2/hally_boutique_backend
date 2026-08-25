@@ -12,9 +12,7 @@ export interface MetricsRepository {
   countOrdersByStatus(): Promise<Record<string, number>>;
   sumRevenueFromPaidOrders(): Promise<number>; // suma total de órdenes con status en [PAID, PROCESSING, SHIPPED, DELIVERED]
   countCustomers(): Promise<number>; // usuarios con role CUSTOMER
-  findLowStockVariants(
-    threshold: number,
-  ): Promise<LowStockVariantRow[]>; // variantes activas con stock <= threshold, incluye el nombre del producto relacionado (join con Product)
+  findLowStockVariants(threshold: number): Promise<LowStockVariantRow[]>; // variantes activas con stock <= threshold, incluye el nombre del producto relacionado (join con Product)
 }
 
 export class PrismaMetricsRepository implements MetricsRepository {

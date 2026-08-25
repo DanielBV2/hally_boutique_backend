@@ -48,8 +48,7 @@ export function createLoginLimiter() {
   return buildLimiter({
     windowMs: 60 * 1000,
     limit: 10,
-    message:
-      "Demasiados intentos de inicio de sesión. Intenta de nuevo en un minuto.",
+    message: "Demasiados intentos de inicio de sesión. Intenta de nuevo en un minuto.",
   });
 }
 
@@ -65,8 +64,7 @@ export function createForgotPasswordLimiter() {
   return buildLimiter({
     windowMs: 60 * 60 * 1000,
     limit: 5,
-    message:
-      "Demasiadas solicitudes de recuperación de contraseña. Intenta de nuevo más tarde.",
+    message: "Demasiadas solicitudes de recuperación de contraseña. Intenta de nuevo más tarde.",
   });
 }
 

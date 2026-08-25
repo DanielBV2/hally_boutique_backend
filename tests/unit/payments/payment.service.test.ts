@@ -29,13 +29,23 @@ vi.mock("../../../src/shared/utils/wompiClient.js", () => ({
 import { PaymentServiceImpl } from "../../../src/modules/payments/payment.service.js";
 import type { PaymentRepository } from "../../../src/modules/payments/payment.repository.js";
 import type { OrderRepository } from "../../../src/modules/orders/order.repository.js";
-import type { VariantStockRepository, TransactionRunner } from "../../../src/modules/payments/payment.service.js";
+import type {
+  VariantStockRepository,
+  TransactionRunner,
+} from "../../../src/modules/payments/payment.service.js";
 import type { CartRepository } from "../../../src/modules/cart/cart.repository.js";
 import { logger } from "../../../src/shared/utils/logger.js";
 import type { OrderWithItems } from "../../../src/modules/orders/order.types.js";
 import type { JobQueue } from "../../../src/shared/utils/jobQueue.js";
-import { NotFoundError, ConflictError, UnauthorizedError } from "../../../src/shared/errors/app-error.js";
-import { generateIntegritySignature, verifyEventChecksum } from "../../../src/shared/utils/wompiSignature.js";
+import {
+  NotFoundError,
+  ConflictError,
+  UnauthorizedError,
+} from "../../../src/shared/errors/app-error.js";
+import {
+  generateIntegritySignature,
+  verifyEventChecksum,
+} from "../../../src/shared/utils/wompiSignature.js";
 import { voidWompiTransaction } from "../../../src/shared/utils/wompiClient.js";
 
 function mockPaymentRepo(): PaymentRepository {
@@ -160,7 +170,14 @@ describe("PaymentServiceImpl", () => {
     txRunner = mockTransactionRunner();
     cartRepo = mockCartRepo();
     jobQueue = mockJobQueue();
-    service = new PaymentServiceImpl(paymentRepo, orderRepo, variantStockRepo, txRunner, cartRepo, jobQueue);
+    service = new PaymentServiceImpl(
+      paymentRepo,
+      orderRepo,
+      variantStockRepo,
+      txRunner,
+      cartRepo,
+      jobQueue,
+    );
   });
 
   describe("createCheckout", () => {
@@ -200,7 +217,11 @@ describe("PaymentServiceImpl", () => {
     });
 
     it("caso feliz: amountInCents y signature correctos", async () => {
-      const order = makeOrder({ total: 150000, shippingCarrier: "coordinadora", shippingService: "express" });
+      const order = makeOrder({
+        total: 150000,
+        shippingCarrier: "coordinadora",
+        shippingService: "express",
+      });
       vi.mocked(orderRepo.findByIdWithItems).mockResolvedValue(order);
       vi.mocked(paymentRepo.findByOrderId).mockResolvedValue(null);
       vi.mocked(paymentRepo.create).mockResolvedValue({ id: "pay-1" } as any);
@@ -226,7 +247,9 @@ describe("PaymentServiceImpl", () => {
     it("lanza UnauthorizedError si checksum es inválido", async () => {
       vi.mocked(verifyEventChecksum).mockReturnValue(false);
 
-      await expect(service.processWebhookEvent(makeWebhookEvent())).rejects.toThrow(UnauthorizedError);
+      await expect(service.processWebhookEvent(makeWebhookEvent())).rejects.toThrow(
+        UnauthorizedError,
+      );
 
       expect(orderRepo.updateStatus).not.toHaveBeenCalled();
       expect(paymentRepo.updateStatus).not.toHaveBeenCalled();
@@ -288,7 +311,11 @@ describe("PaymentServiceImpl", () => {
 
       expect(orderRepo.tryTransitionToPaid).toHaveBeenCalledWith("order-1", expect.anything());
       expect(orderRepo.updateStatus).not.toHaveBeenCalledWith("order-1", "PAID");
-      expect(paymentRepo.updateStatus).toHaveBeenCalledWith("pay-1", "SUCCEEDED", expect.anything());
+      expect(paymentRepo.updateStatus).toHaveBeenCalledWith(
+        "pay-1",
+        "SUCCEEDED",
+        expect.anything(),
+      );
       expect(cartRepo.clearCart).toHaveBeenCalledWith("cart-1", expect.anything());
       expect(jobQueue.enqueue).toHaveBeenCalledTimes(1);
       expect(jobQueue.enqueue).toHaveBeenCalledWith(
@@ -346,7 +373,11 @@ describe("PaymentServiceImpl", () => {
 
       await service.processWebhookEvent(makeWebhookEvent());
 
-      expect(paymentRepo.updateStatus).toHaveBeenCalledWith("pay-1", "SUCCEEDED", expect.anything());
+      expect(paymentRepo.updateStatus).toHaveBeenCalledWith(
+        "pay-1",
+        "SUCCEEDED",
+        expect.anything(),
+      );
       expect(jobQueue.enqueue).not.toHaveBeenCalled();
     });
 

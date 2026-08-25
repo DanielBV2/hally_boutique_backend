@@ -23,10 +23,7 @@ import { PrismaOrderRepository } from "../modules/orders/order.repository.js";
 import { OrderServiceImpl } from "../modules/orders/order.service.js";
 import { OrderController } from "../modules/orders/order.controller.js";
 import { PrismaPaymentRepository } from "../modules/payments/payment.repository.js";
-import {
-  PaymentServiceImpl,
-  type TransactionRunner,
-} from "../modules/payments/payment.service.js";
+import { PaymentServiceImpl, type TransactionRunner } from "../modules/payments/payment.service.js";
 import { PaymentController } from "../modules/payments/payment.controller.js";
 import { PrismaMetricsRepository } from "../modules/metrics/metrics.repository.js";
 import { MetricsServiceImpl } from "../modules/metrics/metrics.service.js";

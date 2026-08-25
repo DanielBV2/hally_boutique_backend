@@ -24,7 +24,10 @@ import { createGenerateShippingLabelHandler } from "../../../src/jobs/handlers/g
 import type { OrderRepository } from "../../../src/modules/orders/order.repository.js";
 import type { OrderWithItems } from "../../../src/modules/orders/order.types.js";
 import { logger } from "../../../src/shared/utils/logger.js";
-import { generateShippingLabel, extractStreetNumber } from "../../../src/shared/utils/shippingClient.js";
+import {
+  generateShippingLabel,
+  extractStreetNumber,
+} from "../../../src/shared/utils/shippingClient.js";
 
 function mockOrderRepo(): OrderRepository {
   return {

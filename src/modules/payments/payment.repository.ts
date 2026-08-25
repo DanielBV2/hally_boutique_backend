@@ -1,4 +1,11 @@
-import type { PrismaClient, Prisma, Payment, PaymentStatus, Order, OrderItem } from "@prisma/client";
+import type {
+  PrismaClient,
+  Prisma,
+  Payment,
+  PaymentStatus,
+  Order,
+  OrderItem,
+} from "@prisma/client";
 
 type OrderWithItems = Order & { items: OrderItem[] };
 

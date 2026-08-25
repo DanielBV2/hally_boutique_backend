@@ -12,14 +12,10 @@ interface JwtPayload {
   role: string;
 }
 
-export function authMiddleware(
-  req: Request,
-  _res: Response,
-  next: NextFunction,
-): void {
+export function authMiddleware(req: Request, _res: Response, next: NextFunction): void {
   const authHeader = req.headers.authorization;
 
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+  if (!authHeader?.startsWith("Bearer ")) {
     next(new UnauthorizedError("Missing or invalid authorization header"));
     return;
   }

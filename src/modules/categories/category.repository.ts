@@ -16,11 +16,7 @@ export interface CategoryRepository {
   nameExists(name: string, excludeId?: string): Promise<boolean>;
   slugExists(slug: string): Promise<boolean>;
   countActiveProductsByCategory(categoryId: string): Promise<number>;
-  create(data: {
-    name: string;
-    slug: string;
-    description?: string | undefined;
-  }): Promise<Category>;
+  create(data: { name: string; slug: string; description?: string | undefined }): Promise<Category>;
   update(
     id: string,
     data: Partial<{ name: string; slug: string; description: string }>,
@@ -38,13 +34,8 @@ export class PrismaCategoryRepository implements CategoryRepository {
     });
   }
 
-  async findAllAdmin(
-    filters: { isActive?: boolean },
-    pagination: Pagination,
-  ) {
-    const where = filters.isActive !== undefined
-      ? { isActive: filters.isActive }
-      : {};
+  async findAllAdmin(filters: { isActive?: boolean }, pagination: Pagination) {
+    const where = filters.isActive !== undefined ? { isActive: filters.isActive } : {};
 
     const { page, limit } = pagination;
     const skip = (page - 1) * limit;
@@ -100,10 +91,7 @@ export class PrismaCategoryRepository implements CategoryRepository {
     return this.prisma.category.create({ data });
   }
 
-  async update(
-    id: string,
-    data: Partial<{ name: string; slug: string; description: string }>,
-  ) {
+  async update(id: string, data: Partial<{ name: string; slug: string; description: string }>) {
     return this.prisma.category.update({ where: { id }, data });
   }
 

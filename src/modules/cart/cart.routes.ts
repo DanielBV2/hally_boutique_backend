@@ -1,11 +1,7 @@
 import { Router } from "express";
 import { validateSchemaMiddleware } from "../../middlewares/validateSchemaMiddleware.js";
 import { authMiddleware } from "../../middlewares/authMiddleware.js";
-import {
-  addCartItemSchema,
-  updateCartItemSchema,
-  cartItemParamsSchema,
-} from "./cart.schema.js";
+import { addCartItemSchema, updateCartItemSchema, cartItemParamsSchema } from "./cart.schema.js";
 import { container } from "../../di/container.js";
 
 const { cartController } = container;
@@ -16,11 +12,7 @@ router.use(authMiddleware);
 
 router.get("/", cartController.getCart);
 
-router.post(
-  "/items",
-  validateSchemaMiddleware(addCartItemSchema, "body"),
-  cartController.addItem,
-);
+router.post("/items", validateSchemaMiddleware(addCartItemSchema, "body"), cartController.addItem);
 
 router.patch(
   "/items/:itemId",

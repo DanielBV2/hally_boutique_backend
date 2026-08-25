@@ -27,8 +27,15 @@ import { OrderServiceImpl } from "../../../src/modules/orders/order.service.js";
 import type { OrderRepository } from "../../../src/modules/orders/order.repository.js";
 import type { CartRepository } from "../../../src/modules/cart/cart.repository.js";
 import type { AddressRepository } from "../../../src/modules/addresses/address.repository.js";
-import type { OrderWithItems, AdminOrderWithUser } from "../../../src/modules/orders/order.types.js";
-import { ValidationError, NotFoundError, ConflictError } from "../../../src/shared/errors/app-error.js";
+import type {
+  OrderWithItems,
+  AdminOrderWithUser,
+} from "../../../src/modules/orders/order.types.js";
+import {
+  ValidationError,
+  NotFoundError,
+  ConflictError,
+} from "../../../src/shared/errors/app-error.js";
 import { getAllShippingRates } from "../../../src/shared/utils/shippingClient.js";
 import { getStaticShippingEstimate } from "../../../src/shared/utils/staticShippingRates.js";
 
@@ -109,7 +116,7 @@ function makeAdminOrder(overrides: Partial<AdminOrderWithUser> = {}): AdminOrder
       lastName: "Gomez",
     },
     ...overrides,
-  } as AdminOrderWithUser;
+  };
 }
 
 function makeCartItem(overrides: Record<string, unknown> = {}) {
@@ -167,7 +174,10 @@ describe("OrderServiceImpl", () => {
 
     it("lanza NotFoundError si addressId no pertenece al usuario", async () => {
       vi.mocked(orderRepo.findByIdempotencyKey).mockResolvedValue(null);
-      vi.mocked(addressRepo.findById).mockResolvedValue({ id: "addr-1", userId: "other-user" } as any);
+      vi.mocked(addressRepo.findById).mockResolvedValue({
+        id: "addr-1",
+        userId: "other-user",
+      } as any);
 
       await expect(service.createOrderFromCart(userId, input)).rejects.toThrow(NotFoundError);
     });
@@ -215,7 +225,11 @@ describe("OrderServiceImpl", () => {
         variantId: "v1",
         quantity: 2,
         variant: {
-          id: "v1", size: "M", color: "Rojo", stock: 10, priceDelta: 0,
+          id: "v1",
+          size: "M",
+          color: "Rojo",
+          stock: 10,
+          priceDelta: 0,
           product: { name: "Camiseta", basePrice: 50000, weightGrams: 300, images: [] },
         },
       });
@@ -224,13 +238,19 @@ describe("OrderServiceImpl", () => {
         variantId: "v2",
         quantity: 1,
         variant: {
-          id: "v2", size: "L", color: "Azul", stock: 5, priceDelta: 5000,
+          id: "v2",
+          size: "L",
+          color: "Azul",
+          stock: 5,
+          priceDelta: 5000,
           product: { name: "Pantalon", basePrice: 80000, weightGrams: 600, images: [] },
         },
       });
 
       vi.mocked(cartRepo.findOrCreateByUserId).mockResolvedValue({
-        id: "cart-1", userId, items: [item1, item2],
+        id: "cart-1",
+        userId,
+        items: [item1, item2],
       } as any);
 
       const expectedSubtotal = 180000;
@@ -241,8 +261,28 @@ describe("OrderServiceImpl", () => {
         taxAmount: expectedTax,
         total: expectedSubtotal + expectedTax,
         items: [
-          { id: "oi-1", variantId: "v1", productName: "Camiseta", size: "M", color: "Rojo", unitPrice: 50000, quantity: 2, weightGrams: 300, orderId: "order-1" },
-          { id: "oi-2", variantId: "v2", productName: "Pantalon", size: "L", color: "Azul", unitPrice: 85000, quantity: 1, weightGrams: 600, orderId: "order-1" },
+          {
+            id: "oi-1",
+            variantId: "v1",
+            productName: "Camiseta",
+            size: "M",
+            color: "Rojo",
+            unitPrice: 50000,
+            quantity: 2,
+            weightGrams: 300,
+            orderId: "order-1",
+          },
+          {
+            id: "oi-2",
+            variantId: "v2",
+            productName: "Pantalon",
+            size: "L",
+            color: "Azul",
+            unitPrice: 85000,
+            quantity: 1,
+            weightGrams: 600,
+            orderId: "order-1",
+          },
         ] as any,
       });
       vi.mocked(orderRepo.createWithItems).mockResolvedValue(created);
@@ -302,7 +342,16 @@ describe("OrderServiceImpl", () => {
     it("devuelve el DTO mapeado si la orden pertenece al usuario", async () => {
       const order = makeOrder({
         items: [
-          { id: "oi-1", variantId: "v1", productName: "Camiseta", size: "M", color: "Rojo", unitPrice: 50000, quantity: 2, orderId: "order-1" },
+          {
+            id: "oi-1",
+            variantId: "v1",
+            productName: "Camiseta",
+            size: "M",
+            color: "Rojo",
+            unitPrice: 50000,
+            quantity: 2,
+            orderId: "order-1",
+          },
         ] as any,
       });
       vi.mocked(orderRepo.findByIdWithItems).mockResolvedValue(order);
@@ -327,9 +376,7 @@ describe("OrderServiceImpl", () => {
     it("usa fallback estatico cuando todas las transportadoras fallan", async () => {
       const order = makeOrder({
         shippingState: "Antioquia",
-        items: [
-          { variantId: "v1", quantity: 2, weightGrams: 300 } as any,
-        ],
+        items: [{ variantId: "v1", quantity: 2, weightGrams: 300 } as any],
       });
       vi.mocked(orderRepo.findByIdWithItems).mockResolvedValue(order);
       vi.mocked(getAllShippingRates).mockResolvedValue([]);
@@ -350,38 +397,31 @@ describe("OrderServiceImpl", () => {
     });
 
     it("lanza NotFoundError si la orden no pertenece al usuario", async () => {
-      vi.mocked(orderRepo.findByIdWithItems).mockResolvedValue(
-        makeOrder({ userId: "other-user" }),
-      );
+      vi.mocked(orderRepo.findByIdWithItems).mockResolvedValue(makeOrder({ userId: "other-user" }));
 
-      await expect(
-        service.getShippingQuote("user-1", "order-1"),
-      ).rejects.toThrow(NotFoundError);
+      await expect(service.getShippingQuote("user-1", "order-1")).rejects.toThrow(NotFoundError);
     });
 
     it("lanza ConflictError si la orden no esta en PENDING", async () => {
-      vi.mocked(orderRepo.findByIdWithItems).mockResolvedValue(
-        makeOrder({ status: "PAID" }),
-      );
+      vi.mocked(orderRepo.findByIdWithItems).mockResolvedValue(makeOrder({ status: "PAID" }));
 
-      await expect(
-        service.getShippingQuote("user-1", "order-1"),
-      ).rejects.toThrow(ConflictError);
+      await expect(service.getShippingQuote("user-1", "order-1")).rejects.toThrow(ConflictError);
     });
   });
 
   describe("selectShipping", () => {
     it("lanza ConflictError si la opcion ya no esta disponible", async () => {
       const order = makeOrder({
-        items: [
-          { variantId: "v1", quantity: 2, weightGrams: 300 } as any,
-        ],
+        items: [{ variantId: "v1", quantity: 2, weightGrams: 300 } as any],
       });
       vi.mocked(orderRepo.findByIdWithItems).mockResolvedValue(order);
       vi.mocked(getAllShippingRates).mockResolvedValue([]);
 
       await expect(
-        service.selectShipping("user-1", "order-1", { carrier: "coordinadora", service: "express" }),
+        service.selectShipping("user-1", "order-1", {
+          carrier: "coordinadora",
+          service: "express",
+        }),
       ).rejects.toThrow(ConflictError);
     });
 
@@ -390,9 +430,7 @@ describe("OrderServiceImpl", () => {
         subtotal: 100000,
         taxAmount: 19000,
         total: 119000,
-        items: [
-          { variantId: "v1", quantity: 2, weightGrams: 300 } as any,
-        ],
+        items: [{ variantId: "v1", quantity: 2, weightGrams: 300 } as any],
       });
       vi.mocked(orderRepo.findByIdWithItems).mockResolvedValue(order);
       vi.mocked(getAllShippingRates).mockResolvedValue([
@@ -413,9 +451,7 @@ describe("OrderServiceImpl", () => {
         total: 131000,
         shippingCarrier: "coordinadora",
         shippingService: "express",
-        items: [
-          { variantId: "v1", quantity: 2, weightGrams: 300 } as any,
-        ],
+        items: [{ variantId: "v1", quantity: 2, weightGrams: 300 } as any],
       });
       vi.mocked(orderRepo.updateShippingAndTotal).mockResolvedValue(updatedOrder);
 
@@ -441,9 +477,7 @@ describe("OrderServiceImpl", () => {
         subtotal: 200000,
         taxAmount: 38000,
         total: 238000,
-        items: [
-          { variantId: "v1", quantity: 5, weightGrams: 300 } as any,
-        ],
+        items: [{ variantId: "v1", quantity: 5, weightGrams: 300 } as any],
       });
       vi.mocked(orderRepo.findByIdWithItems).mockResolvedValue(order);
       vi.mocked(getAllShippingRates).mockResolvedValue([
@@ -464,9 +498,7 @@ describe("OrderServiceImpl", () => {
         total: 238000,
         shippingCarrier: "coordinadora",
         shippingService: "express",
-        items: [
-          { variantId: "v1", quantity: 5, weightGrams: 300 } as any,
-        ],
+        items: [{ variantId: "v1", quantity: 5, weightGrams: 300 } as any],
       });
       vi.mocked(orderRepo.updateShippingAndTotal).mockResolvedValue(updatedOrder);
 
@@ -488,18 +520,14 @@ describe("OrderServiceImpl", () => {
         service.updateOrderAddress("user-1", "order-1", { addressId: "addr-2" }),
       ).rejects.toThrow(NotFoundError);
 
-      vi.mocked(orderRepo.findByIdWithItems).mockResolvedValue(
-        makeOrder({ userId: "other-user" }),
-      );
+      vi.mocked(orderRepo.findByIdWithItems).mockResolvedValue(makeOrder({ userId: "other-user" }));
       await expect(
         service.updateOrderAddress("user-1", "order-1", { addressId: "addr-2" }),
       ).rejects.toThrow(NotFoundError);
     });
 
     it("lanza ConflictError si la orden no esta en estado PENDING", async () => {
-      vi.mocked(orderRepo.findByIdWithItems).mockResolvedValue(
-        makeOrder({ status: "PAID" }),
-      );
+      vi.mocked(orderRepo.findByIdWithItems).mockResolvedValue(makeOrder({ status: "PAID" }));
 
       await expect(
         service.updateOrderAddress("user-1", "order-1", { addressId: "addr-2" }),
@@ -547,7 +575,7 @@ describe("OrderServiceImpl", () => {
         shippingCarrier: "coordinadora",
         shippingService: "express",
         shippingAmount: 12000,
-        shippingStatus: "LABEL_GENERATED" as any,
+        shippingStatus: "LABEL_GENERATED",
       });
       vi.mocked(orderRepo.findByIdWithItems).mockResolvedValue(order);
 
@@ -644,10 +672,7 @@ describe("OrderServiceImpl", () => {
     it("propaga el search combinado con status", async () => {
       vi.mocked(orderRepo.findAllAdmin).mockResolvedValue({ orders: [], total: 0 });
 
-      await service.listAllOrdersAdmin(
-        { status: "PAID", search: "maria" },
-        { page: 1, limit: 20 },
-      );
+      await service.listAllOrdersAdmin({ status: "PAID", search: "maria" }, { page: 1, limit: 20 });
 
       expect(orderRepo.findAllAdmin).toHaveBeenCalledWith(
         { status: "PAID", search: "maria" },
@@ -694,24 +719,20 @@ describe("OrderServiceImpl", () => {
     });
 
     it("PENDING -> SHIPPED es invalido (status actual fuera de la progresion) -> ConflictError", async () => {
-      vi.mocked(orderRepo.findByIdAdmin).mockResolvedValue(
-        makeAdminOrder({ status: "PENDING" }),
-      );
+      vi.mocked(orderRepo.findByIdAdmin).mockResolvedValue(makeAdminOrder({ status: "PENDING" }));
 
-      await expect(
-        service.updateOrderStatusAdmin("order-1", "SHIPPED"),
-      ).rejects.toThrow(ConflictError);
+      await expect(service.updateOrderStatusAdmin("order-1", "SHIPPED")).rejects.toThrow(
+        ConflictError,
+      );
       expect(orderRepo.updateStatus).not.toHaveBeenCalled();
     });
 
     it("DELIVERED -> PROCESSING es invalido (retroceder) -> ConflictError", async () => {
-      vi.mocked(orderRepo.findByIdAdmin).mockResolvedValue(
-        makeAdminOrder({ status: "DELIVERED" }),
-      );
+      vi.mocked(orderRepo.findByIdAdmin).mockResolvedValue(makeAdminOrder({ status: "DELIVERED" }));
 
-      await expect(
-        service.updateOrderStatusAdmin("order-1", "PROCESSING"),
-      ).rejects.toThrow(ConflictError);
+      await expect(service.updateOrderStatusAdmin("order-1", "PROCESSING")).rejects.toThrow(
+        ConflictError,
+      );
       expect(orderRepo.updateStatus).not.toHaveBeenCalled();
     });
 

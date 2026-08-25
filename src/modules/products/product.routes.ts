@@ -24,11 +24,7 @@ const { productController, variantController } = container;
 
 const router = Router();
 
-router.get(
-  "/",
-  validateSchemaMiddleware(listProductsQuerySchema, "query"),
-  productController.list,
-);
+router.get("/", validateSchemaMiddleware(listProductsQuerySchema, "query"), productController.list);
 
 router.get(
   "/admin/all",

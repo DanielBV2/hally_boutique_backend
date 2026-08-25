@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { type PrismaClient } from "@prisma/client";
 import type { Address } from "@prisma/client";
 import type { CreateAddressData } from "./address.types.js";
 
@@ -60,9 +60,7 @@ export class PrismaAddressRepository implements AddressRepository {
   }
 
   async unsetDefaultForUser(userId: string, excludeId?: string) {
-    const where = excludeId
-      ? { userId, id: { not: excludeId } }
-      : { userId };
+    const where = excludeId ? { userId, id: { not: excludeId } } : { userId };
 
     await this.prisma.address.updateMany({
       where: { ...where, isDefault: true },

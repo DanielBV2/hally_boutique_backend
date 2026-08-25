@@ -1,14 +1,8 @@
-import type {
-  VariantRepository,
-  CreateVariantData,
-} from "./variant.repository.js";
+import type { VariantRepository } from "./variant.repository.js";
 import type { ProductRepository } from "./product.repository.js";
 import type { VariantAdminDTO } from "./variant.dto.js";
-import {
-  ConflictError,
-  NotFoundError,
-  ValidationError,
-} from "../../shared/errors/app-error.js";
+import type { Prisma, Size } from "@prisma/client";
+import { ConflictError, NotFoundError, ValidationError } from "../../shared/errors/app-error.js";
 import { generateUniqueSku } from "../../shared/utils/sku.js";
 
 interface CreateVariantInput {
@@ -28,10 +22,7 @@ interface UpdateVariantInput {
 
 export interface VariantService {
   listByProduct(productId: string): Promise<VariantAdminDTO[]>;
-  createVariant(
-    productId: string,
-    data: CreateVariantInput,
-  ): Promise<VariantAdminDTO>;
+  createVariant(productId: string, data: CreateVariantInput): Promise<VariantAdminDTO>;
   updateVariant(
     productId: string,
     variantId: string,
@@ -41,7 +32,15 @@ export interface VariantService {
 }
 
 function toAdminDTO(
-  variant: { id: string; size: string; color: string; sku: string; stock: number; priceDelta: import("@prisma/client").Prisma.Decimal; isActive: boolean },
+  variant: {
+    id: string;
+    size: string;
+    color: string;
+    sku: string;
+    stock: number;
+    priceDelta: Prisma.Decimal;
+    isActive: boolean;
+  },
   basePrice: number,
 ): VariantAdminDTO {
   return {
@@ -74,12 +73,9 @@ export class VariantServiceImpl implements VariantService {
     return variants.map((v) => toAdminDTO(v, basePrice));
   }
 
-  async createVariant(
-    productId: string,
-    data: CreateVariantInput,
-  ): Promise<VariantAdminDTO> {
+  async createVariant(productId: string, data: CreateVariantInput): Promise<VariantAdminDTO> {
     const product = await this.productRepo.findById(productId);
-    if (!product || !product.isActive) {
+    if (!product?.isActive) {
       throw new NotFoundError("Product");
     }
 
@@ -87,9 +83,7 @@ export class VariantServiceImpl implements VariantService {
     const finalPrice = basePrice + data.priceDelta;
 
     if (finalPrice <= 0) {
-      throw new ValidationError(
-        "El precio final de la variante debe ser mayor a 0",
-      );
+      throw new ValidationError("El precio final de la variante debe ser mayor a 0");
     }
 
     const combinationExists = await this.variantRepo.existsCombination(
@@ -107,22 +101,17 @@ export class VariantServiceImpl implements VariantService {
     if (data.sku) {
       const skuExists = await this.variantRepo.skuExists(data.sku);
       if (skuExists) {
-        throw new ConflictError(
-          `El SKU "${data.sku}" ya está en uso`,
-        );
+        throw new ConflictError(`El SKU "${data.sku}" ya está en uso`);
       }
       sku = data.sku;
     } else {
-      sku = await generateUniqueSku(
-        product.name,
-        data.color,
-        data.size,
-        (candidate) => this.variantRepo.skuExists(candidate),
+      sku = await generateUniqueSku(product.name, data.color, data.size, (candidate) =>
+        this.variantRepo.skuExists(candidate),
       );
     }
 
     const variant = await this.variantRepo.create(productId, {
-      size: data.size as import("@prisma/client").Size,
+      size: data.size as Size,
       color: data.color,
       sku,
       stock: data.stock,
@@ -143,26 +132,22 @@ export class VariantServiceImpl implements VariantService {
     }
 
     const existing = await this.variantRepo.findById(variantId);
-    if (!existing || existing.productId !== productId) {
+    if (existing?.productId !== productId) {
       throw new NotFoundError("Variant");
     }
 
     const basePrice = Number(product.basePrice);
-    const priceDelta = data.priceDelta !== undefined ? data.priceDelta : Number(existing.priceDelta);
+    const priceDelta = data.priceDelta ?? Number(existing.priceDelta);
     const finalPrice = basePrice + priceDelta;
 
     if (finalPrice <= 0) {
-      throw new ValidationError(
-        "El precio final de la variante debe ser mayor a 0",
-      );
+      throw new ValidationError("El precio final de la variante debe ser mayor a 0");
     }
 
     if (data.sku !== undefined && data.sku !== existing.sku) {
       const skuExists = await this.variantRepo.skuExists(data.sku, variantId);
       if (skuExists) {
-        throw new ConflictError(
-          `El SKU "${data.sku}" ya está en uso`,
-        );
+        throw new ConflictError(`El SKU "${data.sku}" ya está en uso`);
       }
     }
 
@@ -183,7 +168,7 @@ export class VariantServiceImpl implements VariantService {
     }
 
     const existing = await this.variantRepo.findById(variantId);
-    if (!existing || existing.productId !== productId) {
+    if (existing?.productId !== productId) {
       throw new NotFoundError("Variant");
     }
 

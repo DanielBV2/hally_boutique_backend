@@ -72,19 +72,48 @@ export const openapiDocument: oas30.OpenAPIObject = {
   ],
   security: bearerAuth,
   paths: {
-    "/api/health": {
+    "/health": {
       get: {
         tags: ["Auth"],
         summary: "Health check",
+        description:
+          "Verifica que el servicio está vivo y que la base de datos responde (ping real con timeout de 3s). Usado por orquestadores (K8s, Railway, Render).",
         security: noAuth,
         responses: {
           "200": {
-            description: "Servicio vivo",
+            description: "Servicio vivo y base de datos accesible",
             content: {
               "application/json": {
                 schema: {
                   type: "object",
-                  properties: { status: { type: "string", enum: ["ok"] } },
+                  properties: {
+                    status: { type: "string", enum: ["ok"] },
+                    checks: {
+                      type: "object",
+                      properties: {
+                        database: { type: "string", enum: ["ok"] },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "503": {
+            description: "Base de datos inaccesible o ping expirado",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    status: { type: "string", enum: ["error"] },
+                    checks: {
+                      type: "object",
+                      properties: {
+                        database: { type: "string", enum: ["unreachable"] },
+                      },
+                    },
+                  },
                 },
               },
             },
@@ -119,7 +148,8 @@ export const openapiDocument: oas30.OpenAPIObject = {
       post: {
         tags: ["Auth"],
         summary: "Iniciar sesión",
-        description: "Mensaje de error genérico tanto para email inexistente como contraseña incorrecta.",
+        description:
+          "Mensaje de error genérico tanto para email inexistente como contraseña incorrecta.",
         security: noAuth,
         requestBody: {
           required: true,
@@ -273,7 +303,12 @@ export const openapiDocument: oas30.OpenAPIObject = {
           { name: "page", in: "query", schema: { type: "number", default: 1 } },
           { name: "limit", in: "query", schema: { type: "number", default: 20, maximum: 50 } },
           { name: "role", in: "query", schema: { type: "string", enum: ["CUSTOMER", "ADMIN"] } },
-          { name: "search", in: "query", schema: { type: "string" }, description: "Filtra por nombre, apellido o correo (case-insensitive)." },
+          {
+            name: "search",
+            in: "query",
+            schema: { type: "string" },
+            description: "Filtra por nombre, apellido o correo (case-insensitive).",
+          },
         ],
         responses: {
           "200": successResponse("#/components/schemas/AdminUserListResponse"),
@@ -299,9 +334,17 @@ export const openapiDocument: oas30.OpenAPIObject = {
           {
             name: "sortBy",
             in: "query",
-            schema: { type: "string", enum: ["createdAt", "basePrice", "name"], default: "createdAt" },
+            schema: {
+              type: "string",
+              enum: ["createdAt", "basePrice", "name"],
+              default: "createdAt",
+            },
           },
-          { name: "sortOrder", in: "query", schema: { type: "string", enum: ["asc", "desc"], default: "desc" } },
+          {
+            name: "sortOrder",
+            in: "query",
+            schema: { type: "string", enum: ["asc", "desc"], default: "desc" },
+          },
         ],
         responses: {
           "200": successResponse("#/components/schemas/ProductListResponse"),
@@ -331,9 +374,7 @@ export const openapiDocument: oas30.OpenAPIObject = {
         tags: ["Products"],
         summary: "Detalle de producto por slug (público)",
         security: noAuth,
-        parameters: [
-          { name: "slug", in: "path", required: true, schema: { type: "string" } },
-        ],
+        parameters: [{ name: "slug", in: "path", required: true, schema: { type: "string" } }],
         responses: {
           "200": successResponse("#/components/schemas/ProductDetail"),
           "404": errorResponse,
@@ -422,7 +463,12 @@ export const openapiDocument: oas30.OpenAPIObject = {
         summary: "Quitar imagen de producto (ADMIN)",
         parameters: [
           { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
-          { name: "imageId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+          {
+            name: "imageId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
         ],
         responses: {
           "200": emptySuccessResponse(),
@@ -436,7 +482,12 @@ export const openapiDocument: oas30.OpenAPIObject = {
         tags: ["Products"],
         summary: "Listar variantes de un producto (ADMIN)",
         parameters: [
-          { name: "productId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+          {
+            name: "productId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
         ],
         responses: {
           "200": successResponse("#/components/schemas/VariantAdminListResponse"),
@@ -447,7 +498,12 @@ export const openapiDocument: oas30.OpenAPIObject = {
         tags: ["Products"],
         summary: "Crear variante (ADMIN)",
         parameters: [
-          { name: "productId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+          {
+            name: "productId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
         ],
         requestBody: {
           required: true,
@@ -467,8 +523,18 @@ export const openapiDocument: oas30.OpenAPIObject = {
         tags: ["Products"],
         summary: "Actualizar variante (ADMIN)",
         parameters: [
-          { name: "productId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
-          { name: "variantId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+          {
+            name: "productId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "variantId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
         ],
         requestBody: {
           required: true,
@@ -485,8 +551,18 @@ export const openapiDocument: oas30.OpenAPIObject = {
         tags: ["Products"],
         summary: "Soft delete de variante (ADMIN)",
         parameters: [
-          { name: "productId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
-          { name: "variantId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+          {
+            name: "productId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "variantId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
         ],
         responses: {
           "200": emptySuccessResponse(),
@@ -525,9 +601,7 @@ export const openapiDocument: oas30.OpenAPIObject = {
         tags: ["Categories"],
         summary: "Categoría por slug (público)",
         security: noAuth,
-        parameters: [
-          { name: "slug", in: "path", required: true, schema: { type: "string" } },
-        ],
+        parameters: [{ name: "slug", in: "path", required: true, schema: { type: "string" } }],
         responses: {
           "200": successResponse("#/components/schemas/Category"),
           "404": errorResponse,
@@ -624,7 +698,12 @@ export const openapiDocument: oas30.OpenAPIObject = {
         tags: ["Cart"],
         summary: "Actualizar cantidad de un item",
         parameters: [
-          { name: "itemId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+          {
+            name: "itemId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
         ],
         requestBody: {
           required: true,
@@ -641,7 +720,12 @@ export const openapiDocument: oas30.OpenAPIObject = {
         tags: ["Cart"],
         summary: "Quitar item del carrito",
         parameters: [
-          { name: "itemId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+          {
+            name: "itemId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
         ],
         responses: {
           "200": emptySuccessResponse(),
@@ -743,7 +827,8 @@ export const openapiDocument: oas30.OpenAPIObject = {
       get: {
         tags: ["Orders"],
         summary: "Detalle de orden del usuario",
-        description: "Fuente de verdad del estado tras el pago (no confiar en la redirect de Wompi).",
+        description:
+          "Fuente de verdad del estado tras el pago (no confiar en la redirect de Wompi).",
         parameters: [
           { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
         ],
@@ -763,7 +848,12 @@ export const openapiDocument: oas30.OpenAPIObject = {
           "El frontend arma el formulario de Wompi Web Checkout con estos parámetros. " +
           "El estado real del pago se consulta con GET /api/orders/:id.",
         parameters: [
-          { name: "orderId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+          {
+            name: "orderId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
         ],
         responses: {
           "200": successResponse("#/components/schemas/CheckoutParams"),
@@ -779,7 +869,12 @@ export const openapiDocument: oas30.OpenAPIObject = {
         summary: "Cotizar envío",
         description: "Cotización en vivo vía Envia.com (carriers configurados).",
         parameters: [
-          { name: "orderId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+          {
+            name: "orderId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
         ],
         responses: {
           "200": successResponse("#/components/schemas/ShippingQuoteListResponse"),
@@ -792,14 +887,22 @@ export const openapiDocument: oas30.OpenAPIObject = {
       patch: {
         tags: ["Orders"],
         summary: "Seleccionar método de envío",
-        description: "Re-cotiza de forma autoritativa; checkout bloqueado (409) sin selección previa.",
+        description:
+          "Re-cotiza de forma autoritativa; checkout bloqueado (409) sin selección previa.",
         parameters: [
-          { name: "orderId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+          {
+            name: "orderId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
         ],
         requestBody: {
           required: true,
           content: {
-            "application/json": { schema: { $ref: "#/components/schemas/ShippingSelectionRequest" } },
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ShippingSelectionRequest" },
+            },
           },
         },
         responses: {
@@ -819,12 +922,19 @@ export const openapiDocument: oas30.OpenAPIObject = {
           "Actualiza el snapshot de dirección y resetea envío (shippingAmount 0, shippingStatus PENDING, " +
           "carrier/servicio null) porque el destino cambió: hay que re-cotizar. total vuelve a subtotal + impuestos.",
         parameters: [
-          { name: "orderId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+          {
+            name: "orderId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
         ],
         requestBody: {
           required: true,
           content: {
-            "application/json": { schema: { $ref: "#/components/schemas/UpdateOrderAddressRequest" } },
+            "application/json": {
+              schema: { $ref: "#/components/schemas/UpdateOrderAddressRequest" },
+            },
           },
         },
         responses: {
@@ -847,13 +957,22 @@ export const openapiDocument: oas30.OpenAPIObject = {
             in: "query",
             schema: {
               type: "string",
-              enum: ["PENDING", "PAID", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED", "REFUNDED"],
+              enum: [
+                "PENDING",
+                "PAID",
+                "PROCESSING",
+                "SHIPPED",
+                "DELIVERED",
+                "CANCELLED",
+                "REFUNDED",
+              ],
             },
           },
           {
             name: "search",
             in: "query",
-            description: "Busca por id de orden, correo o nombre del cliente, o nombre de producto (insensible a mayúsculas).",
+            description:
+              "Busca por id de orden, correo o nombre del cliente, o nombre de producto (insensible a mayúsculas).",
             schema: { type: "string" },
           },
         ],
@@ -889,7 +1008,9 @@ export const openapiDocument: oas30.OpenAPIObject = {
         requestBody: {
           required: true,
           content: {
-            "application/json": { schema: { $ref: "#/components/schemas/UpdateOrderStatusRequest" } },
+            "application/json": {
+              schema: { $ref: "#/components/schemas/UpdateOrderStatusRequest" },
+            },
           },
         },
         responses: {
@@ -1100,7 +1221,19 @@ export const openapiDocument: oas30.OpenAPIObject = {
           hasStock: { type: "boolean" },
           isActive: { type: "boolean" },
         },
-        required: ["id", "name", "slug", "basePrice", "currency", "thumbnailUrl", "secondaryImageUrl", "categoryName", "images", "hasStock", "isActive"],
+        required: [
+          "id",
+          "name",
+          "slug",
+          "basePrice",
+          "currency",
+          "thumbnailUrl",
+          "secondaryImageUrl",
+          "categoryName",
+          "images",
+          "hasStock",
+          "isActive",
+        ],
       },
 
       ProductDetail: {
@@ -1139,7 +1272,17 @@ export const openapiDocument: oas30.OpenAPIObject = {
             },
           },
         },
-        required: ["id", "name", "slug", "description", "basePrice", "currency", "category", "images", "variants"],
+        required: [
+          "id",
+          "name",
+          "slug",
+          "description",
+          "basePrice",
+          "currency",
+          "category",
+          "images",
+          "variants",
+        ],
       },
 
       ProductListResponse: {
@@ -1175,7 +1318,10 @@ export const openapiDocument: oas30.OpenAPIObject = {
           currency: { type: "string" },
           weightGrams: { type: "number" },
           categoryId: { type: "string", format: "uuid" },
-          isActive: { type: "boolean", description: "Activar/desactivar producto (visibilidad en tienda)." },
+          isActive: {
+            type: "boolean",
+            description: "Activar/desactivar producto (visibilidad en tienda).",
+          },
         },
       },
 
@@ -1297,7 +1443,20 @@ export const openapiDocument: oas30.OpenAPIObject = {
           availableStock: { type: "number" },
           isAvailable: { type: "boolean" },
         },
-        required: ["id", "variantId", "productName", "productSlug", "size", "color", "thumbnailUrl", "unitPrice", "quantity", "subtotal", "availableStock", "isAvailable"],
+        required: [
+          "id",
+          "variantId",
+          "productName",
+          "productSlug",
+          "size",
+          "color",
+          "thumbnailUrl",
+          "unitPrice",
+          "quantity",
+          "subtotal",
+          "availableStock",
+          "isAvailable",
+        ],
       },
 
       Cart: {
@@ -1342,7 +1501,18 @@ export const openapiDocument: oas30.OpenAPIObject = {
           postalCode: { type: "string", nullable: true },
           isDefault: { type: "boolean" },
         },
-        required: ["id", "fullName", "phone", "line1", "line2", "city", "state", "country", "postalCode", "isDefault"],
+        required: [
+          "id",
+          "fullName",
+          "phone",
+          "line1",
+          "line2",
+          "city",
+          "state",
+          "country",
+          "postalCode",
+          "isDefault",
+        ],
       },
 
       AddressListResponse: {
@@ -1438,7 +1608,31 @@ export const openapiDocument: oas30.OpenAPIObject = {
           shippingStatus: { type: "string", enum: ["PENDING", "LABEL_GENERATED", "LABEL_FAILED"] },
           createdAt: { type: "string", format: "date-time" },
         },
-        required: ["id", "status", "subtotal", "taxAmount", "shippingAmount", "total", "currency", "items", "shippingAddressId", "shippingFullName", "shippingPhone", "shippingLine1", "shippingLine2", "shippingCity", "shippingState", "shippingCountry", "shippingPostalCode", "shippingCarrier", "shippingService", "shippingTrackingNumber", "shippingLabelUrl", "shippingStatus", "createdAt"],
+        required: [
+          "id",
+          "status",
+          "subtotal",
+          "taxAmount",
+          "shippingAmount",
+          "total",
+          "currency",
+          "items",
+          "shippingAddressId",
+          "shippingFullName",
+          "shippingPhone",
+          "shippingLine1",
+          "shippingLine2",
+          "shippingCity",
+          "shippingState",
+          "shippingCountry",
+          "shippingPostalCode",
+          "shippingCarrier",
+          "shippingService",
+          "shippingTrackingNumber",
+          "shippingLabelUrl",
+          "shippingStatus",
+          "createdAt",
+        ],
       },
 
       OrderListResponse: {
@@ -1535,7 +1729,14 @@ export const openapiDocument: oas30.OpenAPIObject = {
           totalPrice: { type: "number" },
           currency: { type: "string" },
         },
-        required: ["carrier", "service", "serviceDescription", "deliveryEstimate", "totalPrice", "currency"],
+        required: [
+          "carrier",
+          "service",
+          "serviceDescription",
+          "deliveryEstimate",
+          "totalPrice",
+          "currency",
+        ],
       },
 
       ShippingQuoteListResponse: {
@@ -1556,7 +1757,14 @@ export const openapiDocument: oas30.OpenAPIObject = {
           signature: { type: "string" },
           redirectUrl: { type: "string", format: "uri" },
         },
-        required: ["publicKey", "currency", "amountInCents", "reference", "signature", "redirectUrl"],
+        required: [
+          "publicKey",
+          "currency",
+          "amountInCents",
+          "reference",
+          "signature",
+          "redirectUrl",
+        ],
       },
 
       WompiWebhookRequest: {
@@ -1570,7 +1778,10 @@ export const openapiDocument: oas30.OpenAPIObject = {
                 type: "object",
                 properties: {
                   id: { type: "string" },
-                  status: { type: "string", enum: ["APPROVED", "DECLINED", "VOIDED", "ERROR", "PENDING"] },
+                  status: {
+                    type: "string",
+                    enum: ["APPROVED", "DECLINED", "VOIDED", "ERROR", "PENDING"],
+                  },
                   amount_in_cents: { type: "number" },
                   reference: { type: "string" },
                 },
@@ -1619,7 +1830,13 @@ export const openapiDocument: oas30.OpenAPIObject = {
             items: { $ref: "#/components/schemas/LowStockVariant" },
           },
         },
-        required: ["totalOrders", "totalRevenue", "ordersByStatus", "totalCustomers", "lowStockVariants"],
+        required: [
+          "totalOrders",
+          "totalRevenue",
+          "ordersByStatus",
+          "totalCustomers",
+          "lowStockVariants",
+        ],
       },
     },
   },

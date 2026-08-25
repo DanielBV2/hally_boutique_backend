@@ -10,24 +10,21 @@ import type {
   UserProfileDTO,
   AdminUserListItemDTO,
 } from "./auth.dto.js";
-import type { RegisterInput, LoginInput, UpdateProfileInput, ChangePasswordInput } from "./auth.schema.js";
-import {
-  ConflictError,
-  UnauthorizedError,
-  NotFoundError,
-} from "../../shared/errors/app-error.js";
+import type {
+  RegisterInput,
+  LoginInput,
+  UpdateProfileInput,
+  ChangePasswordInput,
+} from "./auth.schema.js";
+import { ConflictError, UnauthorizedError, NotFoundError } from "../../shared/errors/app-error.js";
 import { env } from "../../config/env.js";
-import {
-  generateRefreshToken,
-  hashRefreshToken,
-} from "../../shared/utils/refreshToken.js";
+import { generateRefreshToken, hashRefreshToken } from "../../shared/utils/refreshToken.js";
 import { sendPasswordResetEmail } from "../../shared/utils/emailClient.js";
 import { logger } from "../../shared/utils/logger.js";
 import type { Role } from "@prisma/client";
 
 const SALT_ROUNDS = 12;
-const INVALID_SESSION_MESSAGE =
-  "Sesión inválida, por favor inicia sesión de nuevo";
+const INVALID_SESSION_MESSAGE = "Sesión inválida, por favor inicia sesión de nuevo";
 const INVALID_RESET_TOKEN_MESSAGE = "Token inválido o expirado";
 
 export interface AuthService {
@@ -84,11 +81,7 @@ function toAdminUserListItemDTO(user: {
   };
 }
 
-function signToken(payload: {
-  sub: string;
-  email: string;
-  role: Role;
-}): string {
+function signToken(payload: { sub: string; email: string; role: Role }): string {
   return jsonwebtoken.sign(
     { email: payload.email, role: payload.role, jti: randomUUID() },
     env.JWT_SECRET,
@@ -109,15 +102,11 @@ export class AuthServiceImpl implements AuthService {
   ) {}
 
   private refreshTokenExpiresAt(): Date {
-    return new Date(
-      Date.now() + env.REFRESH_TOKEN_EXPIRES_IN_DAYS * 24 * 60 * 60 * 1000,
-    );
+    return new Date(Date.now() + env.REFRESH_TOKEN_EXPIRES_IN_DAYS * 24 * 60 * 60 * 1000);
   }
 
   private passwordResetTokenExpiresAt(): Date {
-    return new Date(
-      Date.now() + env.PASSWORD_RESET_TOKEN_EXPIRES_IN_MINUTES * 60 * 1000,
-    );
+    return new Date(Date.now() + env.PASSWORD_RESET_TOKEN_EXPIRES_IN_MINUTES * 60 * 1000);
   }
 
   async register(data: RegisterInput): Promise<AuthResponseDTO> {
@@ -229,7 +218,7 @@ export class AuthServiceImpl implements AuthService {
     const tokenHash = hashRefreshToken(refreshTokenPlain);
     const record = await this.refreshTokenRepository.findByHash(tokenHash);
 
-    if (!record || record.revokedAt !== null) {
+    if (record?.revokedAt !== null) {
       return;
     }
 
@@ -292,10 +281,7 @@ export class AuthServiceImpl implements AuthService {
     return toUserProfileDTO(user);
   }
 
-  async updateProfile(
-    userId: string,
-    data: UpdateProfileInput,
-  ): Promise<UserProfileDTO> {
+  async updateProfile(userId: string, data: UpdateProfileInput): Promise<UserProfileDTO> {
     const user = await this.repository.findById(userId);
     if (!user) {
       throw new NotFoundError("User");
@@ -318,10 +304,7 @@ export class AuthServiceImpl implements AuthService {
     return toUserProfileDTO(updated);
   }
 
-  async changePassword(
-    userId: string,
-    data: ChangePasswordInput,
-  ): Promise<void> {
+  async changePassword(userId: string, data: ChangePasswordInput): Promise<void> {
     const user = await this.repository.findById(userId);
     if (!user) {
       throw new NotFoundError("User");

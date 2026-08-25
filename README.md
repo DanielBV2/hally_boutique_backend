@@ -50,16 +50,16 @@ interactiva de la API (Swagger) disponible en
 
 ## Scripts
 
-| Script | Descripción |
-|---|---|
-| `npm run dev` | servidor en modo watch (tsx) |
-| `npm run build` | compila TypeScript a `dist/` |
-| `npm start` | corre el build compilado |
-| `npm test` | corre la suite de tests una vez |
-| `npm run test:watch` | tests en modo watch |
-| `npm run prisma:migrate` | crea/aplica migración en dev + regenera cliente |
-| `npm run prisma:migrate:deploy` | aplica migraciones pendientes (producción) |
-| `npm run prisma:studio` | abre Prisma Studio (GUI de la base de datos) |
+| Script                          | Descripción                                     |
+| ------------------------------- | ----------------------------------------------- |
+| `npm run dev`                   | servidor en modo watch (tsx)                    |
+| `npm run build`                 | compila TypeScript a `dist/`                    |
+| `npm start`                     | corre el build compilado                        |
+| `npm test`                      | corre la suite de tests una vez                 |
+| `npm run test:watch`            | tests en modo watch                             |
+| `npm run prisma:migrate`        | crea/aplica migración en dev + regenera cliente |
+| `npm run prisma:migrate:deploy` | aplica migraciones pendientes (producción)      |
+| `npm run prisma:studio`         | abre Prisma Studio (GUI de la base de datos)    |
 
 ## Variables de entorno
 

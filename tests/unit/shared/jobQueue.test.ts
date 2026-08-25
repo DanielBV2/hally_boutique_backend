@@ -43,7 +43,11 @@ describe("PrismaJobQueue", () => {
     };
 
     await queue.enqueue(
-      { type: "GENERATE_SHIPPING_LABEL", payload: { orderId: "order-2" }, uniqueKey: "shipping-label:order-2" },
+      {
+        type: "GENERATE_SHIPPING_LABEL",
+        payload: { orderId: "order-2" },
+        uniqueKey: "shipping-label:order-2",
+      },
       tx as never,
     );
 

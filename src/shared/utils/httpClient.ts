@@ -44,7 +44,11 @@ export async function fetchWithRetry(
   init: Parameters<typeof fetch>[1] = {},
   options: FetchWithRetryOptions = {},
 ): Promise<Response> {
-  const { timeoutMs = DEFAULT_TIMEOUT_MS, retries = DEFAULT_RETRIES, baseDelayMs = DEFAULT_BASE_DELAY_MS } = options;
+  const {
+    timeoutMs = DEFAULT_TIMEOUT_MS,
+    retries = DEFAULT_RETRIES,
+    baseDelayMs = DEFAULT_BASE_DELAY_MS,
+  } = options;
 
   let lastError: unknown;
 

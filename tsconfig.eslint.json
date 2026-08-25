@@ -1,0 +1,7 @@
+{
+  "extends": "./tsconfig.json",
+  "include": ["src", "tests", "eslint.config.js", "vitest.config.ts", "prisma.config.mts"],
+  "compilerOptions": {
+    "noEmit": true
+  }
+}

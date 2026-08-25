@@ -73,7 +73,7 @@ export class AddressServiceImpl implements AddressService {
 
   async updateAddress(userId: string, addressId: string, data: UpdateAddressInput) {
     const existing = await this.repository.findById(addressId);
-    if (!existing || existing.userId !== userId) {
+    if (existing?.userId !== userId) {
       throw new NotFoundError("Address");
     }
 
@@ -98,7 +98,7 @@ export class AddressServiceImpl implements AddressService {
 
   async deleteAddress(userId: string, addressId: string) {
     const existing = await this.repository.findById(addressId);
-    if (!existing || existing.userId !== userId) {
+    if (existing?.userId !== userId) {
       throw new NotFoundError("Address");
     }
 
@@ -106,9 +106,7 @@ export class AddressServiceImpl implements AddressService {
       await this.repository.delete(addressId);
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
-        throw new ConflictError(
-          "No se puede eliminar una dirección con órdenes asociadas",
-        );
+        throw new ConflictError("No se puede eliminar una dirección con órdenes asociadas");
       }
       throw error;
     }

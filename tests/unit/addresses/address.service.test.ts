@@ -90,8 +90,13 @@ describe("AddressServiceImpl", () => {
   describe("createAddress", () => {
     it("llama a unsetDefaultForUser ANTES de crear cuando isDefault es true", async () => {
       const callOrder: string[] = [];
-      vi.mocked(addressRepo.unsetDefaultForUser).mockImplementation(async () => { callOrder.push("unset"); });
-      vi.mocked(addressRepo.create).mockImplementation(async () => { callOrder.push("create"); return makeAddress({ isDefault: true }); });
+      vi.mocked(addressRepo.unsetDefaultForUser).mockImplementation(async () => {
+        callOrder.push("unset");
+      });
+      vi.mocked(addressRepo.create).mockImplementation(async () => {
+        callOrder.push("create");
+        return makeAddress({ isDefault: true });
+      });
 
       await service.createAddress("user-1", { ...baseInput, isDefault: true });
 
@@ -112,7 +117,9 @@ describe("AddressServiceImpl", () => {
     it("lanza NotFoundError si la dirección no pertenece al usuario", async () => {
       vi.mocked(addressRepo.findById).mockResolvedValue(makeAddress({ userId: "other-user" }));
 
-      await expect(service.updateAddress("user-1", "addr-1", { isDefault: true })).rejects.toThrow(NotFoundError);
+      await expect(service.updateAddress("user-1", "addr-1", { isDefault: true })).rejects.toThrow(
+        NotFoundError,
+      );
       expect(addressRepo.update).not.toHaveBeenCalled();
     });
 
@@ -136,7 +143,10 @@ describe("AddressServiceImpl", () => {
 
     it("lanza ConflictError cuando Prisma lanza P2003 (FK violation)", async () => {
       vi.mocked(addressRepo.findById).mockResolvedValue(makeAddress());
-      const fkError = new MockPrismaClientKnownRequestError("Foreign key constraint failed", "P2003");
+      const fkError = new MockPrismaClientKnownRequestError(
+        "Foreign key constraint failed",
+        "P2003",
+      );
       vi.mocked(addressRepo.delete).mockRejectedValue(fkError);
 
       const error = await service.deleteAddress("user-1", "addr-1").catch((e) => e);

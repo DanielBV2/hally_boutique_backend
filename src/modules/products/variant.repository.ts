@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { type PrismaClient } from "@prisma/client";
 import type { Prisma, Size } from "@prisma/client";
 
 export interface CreateVariantData {
@@ -56,12 +56,7 @@ export class PrismaVariantRepository implements VariantRepository {
     return this.prisma.variant.findUnique({ where: { id } });
   }
 
-  async existsCombination(
-    productId: string,
-    size: string,
-    color: string,
-    excludeId?: string,
-  ) {
+  async existsCombination(productId: string, size: string, color: string, excludeId?: string) {
     const where: Prisma.VariantWhereInput = {
       productId,
       size: size as Size,

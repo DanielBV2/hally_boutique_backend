@@ -17,10 +17,7 @@ describe("requestLogger", () => {
   });
 
   it("preserva el X-Request-Id provisto por el cliente", async () => {
-    const res = await request(makeApp())
-      .get("/ping")
-      .set("x-request-id", "trace-42")
-      .expect(200);
+    const res = await request(makeApp()).get("/ping").set("x-request-id", "trace-42").expect(200);
     expect(res.headers["x-request-id"]).toBe("trace-42");
   });
 

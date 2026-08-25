@@ -1,4 +1,4 @@
-import { PrismaClient, Prisma } from "@prisma/client";
+import { type PrismaClient, type Prisma } from "@prisma/client";
 
 export type CartWithItems = Prisma.CartGetPayload<{
   include: {
@@ -36,11 +36,7 @@ export interface CartRepository {
   findOrCreateByUserId(userId: string, tx?: Prisma.TransactionClient): Promise<CartWithItems>;
   findVariantById(variantId: string): Promise<VariantForCart | null>;
   findItemById(itemId: string): Promise<CartItemWithVariant | null>;
-  upsertItem(
-    cartId: string,
-    variantId: string,
-    quantity: number,
-  ): Promise<void>;
+  upsertItem(cartId: string, variantId: string, quantity: number): Promise<void>;
   updateItemQuantity(itemId: string, quantity: number): Promise<void>;
   removeItem(itemId: string): Promise<void>;
   clearCart(cartId: string, tx?: Prisma.TransactionClient): Promise<void>;
@@ -65,7 +61,10 @@ const includeCartItems = {
 export class PrismaCartRepository implements CartRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
-  async findOrCreateByUserId(userId: string, tx?: Prisma.TransactionClient): Promise<CartWithItems> {
+  async findOrCreateByUserId(
+    userId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<CartWithItems> {
     const client = tx ?? this.prisma;
     return client.cart.upsert({
       where: { userId },
