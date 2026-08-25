@@ -44,6 +44,8 @@ jobs:
       SHIPPING_CARRIERS: "coordinadora,serviEntrega,interRapidisimo,tcc"
       JOB_POLL_INTERVAL_MS: "10000"
       JOB_BATCH_SIZE: "5"
+      RESEND_API_KEY: "re_ci_test_not_real"
+      EMAIL_FROM: "test@ci.hallyboutique.local"
     steps:
       - uses: actions/checkout@v4
 
