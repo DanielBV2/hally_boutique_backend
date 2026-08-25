@@ -30,24 +30,11 @@ router.post(
   authController.register,
 );
 
-router.post(
-  "/login",
-  loginLimiter,
-  validateSchemaMiddleware(loginSchema),
-  authController.login,
-);
+router.post("/login", loginLimiter, validateSchemaMiddleware(loginSchema), authController.login);
 
-router.post(
-  "/refresh",
-  validateSchemaMiddleware(refreshTokenSchema),
-  authController.refresh,
-);
+router.post("/refresh", validateSchemaMiddleware(refreshTokenSchema), authController.refresh);
 
-router.post(
-  "/logout",
-  validateSchemaMiddleware(refreshTokenSchema),
-  authController.logout,
-);
+router.post("/logout", validateSchemaMiddleware(refreshTokenSchema), authController.logout);
 
 router.post(
   "/forgot-password",

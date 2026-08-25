@@ -83,9 +83,7 @@ function makeUser(overrides: Partial<User> = {}): User {
   };
 }
 
-function makeRefreshToken(
-  overrides: Partial<RefreshToken> = {},
-): RefreshToken {
+function makeRefreshToken(overrides: Partial<RefreshToken> = {}): RefreshToken {
   return {
     id: "token-1",
     userId: "user-1",
@@ -98,9 +96,7 @@ function makeRefreshToken(
   };
 }
 
-function makePasswordResetToken(
-  overrides: Partial<PasswordResetToken> = {},
-): PasswordResetToken {
+function makePasswordResetToken(overrides: Partial<PasswordResetToken> = {}): PasswordResetToken {
   return {
     id: "reset-token-1",
     userId: "user-1",
@@ -123,11 +119,7 @@ describe("AuthServiceImpl", () => {
     authRepo = mockAuthRepo();
     refreshTokenRepo = mockRefreshTokenRepo();
     passwordResetTokenRepo = mockPasswordResetTokenRepo();
-    service = new AuthServiceImpl(
-      authRepo,
-      refreshTokenRepo,
-      passwordResetTokenRepo,
-    );
+    service = new AuthServiceImpl(authRepo, refreshTokenRepo, passwordResetTokenRepo);
   });
 
   describe("register", () => {
@@ -191,8 +183,7 @@ describe("AuthServiceImpl", () => {
       const result = await service.register(input);
 
       expect(refreshTokenRepo.create).toHaveBeenCalledOnce();
-      const [userId, tokenHash, expiresAt] =
-        vi.mocked(refreshTokenRepo.create).mock.calls[0];
+      const [userId, tokenHash, expiresAt] = vi.mocked(refreshTokenRepo.create).mock.calls[0];
       expect(userId).toBe("user-1");
       expect(tokenHash).toBe(hashRefreshToken(result.refreshToken));
       expect(tokenHash).not.toBe(result.refreshToken);
@@ -281,8 +272,7 @@ describe("AuthServiceImpl", () => {
       const result = await service.login(input);
 
       expect(refreshTokenRepo.create).toHaveBeenCalledOnce();
-      const [userId, tokenHash, expiresAt] =
-        vi.mocked(refreshTokenRepo.create).mock.calls[0];
+      const [userId, tokenHash, expiresAt] = vi.mocked(refreshTokenRepo.create).mock.calls[0];
       expect(userId).toBe("user-1");
       expect(tokenHash).toBe(hashRefreshToken(result.refreshToken));
       expect(expiresAt).toBeInstanceOf(Date);
@@ -294,9 +284,7 @@ describe("AuthServiceImpl", () => {
     it("lanza UnauthorizedError si el token no existe", async () => {
       vi.mocked(refreshTokenRepo.findByHash).mockResolvedValue(null);
 
-      await expect(service.refresh("nonexistent-token")).rejects.toThrow(
-        UnauthorizedError,
-      );
+      await expect(service.refresh("nonexistent-token")).rejects.toThrow(UnauthorizedError);
       expect(refreshTokenRepo.revokeAllForUser).not.toHaveBeenCalled();
     });
 
@@ -304,9 +292,7 @@ describe("AuthServiceImpl", () => {
       const record = makeRefreshToken({ revokedAt: new Date("2026-06-01") });
       vi.mocked(refreshTokenRepo.findByHash).mockResolvedValue(record);
 
-      await expect(service.refresh("used-token")).rejects.toThrow(
-        UnauthorizedError,
-      );
+      await expect(service.refresh("used-token")).rejects.toThrow(UnauthorizedError);
       expect(refreshTokenRepo.revokeAllForUser).toHaveBeenCalledWith("user-1");
     });
 
@@ -316,9 +302,7 @@ describe("AuthServiceImpl", () => {
       });
       vi.mocked(refreshTokenRepo.findByHash).mockResolvedValue(record);
 
-      await expect(service.refresh("expired-token")).rejects.toThrow(
-        UnauthorizedError,
-      );
+      await expect(service.refresh("expired-token")).rejects.toThrow(UnauthorizedError);
       expect(refreshTokenRepo.revokeAllForUser).not.toHaveBeenCalled();
     });
 
@@ -394,16 +378,14 @@ describe("AuthServiceImpl", () => {
 
       expect(passwordResetTokenRepo.invalidateAllForUser).toHaveBeenCalledWith("user-1");
       expect(passwordResetTokenRepo.create).toHaveBeenCalledOnce();
-      const [userId, tokenHash, expiresAt] =
-        vi.mocked(passwordResetTokenRepo.create).mock.calls[0];
+      const [userId, tokenHash, expiresAt] = vi.mocked(passwordResetTokenRepo.create).mock.calls[0];
       expect(userId).toBe("user-1");
       expect(tokenHash).toBeTruthy();
       expect(expiresAt).toBeInstanceOf(Date);
       expect(expiresAt.getTime()).toBeGreaterThan(Date.now());
 
       expect(sendPasswordResetEmail).toHaveBeenCalledOnce();
-      const [to, resetUrl] =
-        vi.mocked(sendPasswordResetEmail).mock.calls[0];
+      const [to, resetUrl] = vi.mocked(sendPasswordResetEmail).mock.calls[0];
       expect(to).toBe("test@example.com");
       const tokenParam = resetUrl.split("?token=")[1];
       expect(hashRefreshToken(tokenParam)).toBe(tokenHash);
@@ -411,9 +393,7 @@ describe("AuthServiceImpl", () => {
     });
 
     it("si el envío de email falla solo loguea, no lanza error al caller", async () => {
-      const loggerErrorSpy = vi
-        .spyOn(logger, "error")
-        .mockImplementation(() => {});
+      const loggerErrorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
       vi.mocked(authRepo.findByEmail).mockResolvedValue(makeUser());
       vi.mocked(sendPasswordResetEmail).mockResolvedValue({
         success: false,
@@ -465,9 +445,9 @@ describe("AuthServiceImpl", () => {
       });
       vi.mocked(passwordResetTokenRepo.findByHash).mockResolvedValue(record);
 
-      await expect(
-        service.resetPassword("expired-token", "NewPassword1"),
-      ).rejects.toThrow(UnauthorizedError);
+      await expect(service.resetPassword("expired-token", "NewPassword1")).rejects.toThrow(
+        UnauthorizedError,
+      );
       expect(bcrypt.hash).not.toHaveBeenCalled();
       expect(passwordResetTokenRepo.markAsUsed).not.toHaveBeenCalled();
     });
@@ -480,13 +460,8 @@ describe("AuthServiceImpl", () => {
       await service.resetPassword("valid-plain-token", "NewPassword1");
 
       expect(bcrypt.hash).toHaveBeenCalledWith("NewPassword1", 12);
-      expect(authRepo.updatePassword).toHaveBeenCalledWith(
-        "user-1",
-        "$2b$12$newhashedpassword",
-      );
-      expect(passwordResetTokenRepo.markAsUsed).toHaveBeenCalledWith(
-        "reset-token-1",
-      );
+      expect(authRepo.updatePassword).toHaveBeenCalledWith("user-1", "$2b$12$newhashedpassword");
+      expect(passwordResetTokenRepo.markAsUsed).toHaveBeenCalledWith("reset-token-1");
       expect(refreshTokenRepo.revokeAllForUser).toHaveBeenCalledWith("user-1");
     });
   });
@@ -577,9 +552,9 @@ describe("AuthServiceImpl", () => {
       vi.mocked(authRepo.findById).mockResolvedValue(user);
       vi.mocked(authRepo.findByEmail).mockResolvedValue(otherUser);
 
-      await expect(
-        service.updateProfile("user-1", { email: "otro@example.com" }),
-      ).rejects.toThrow(ConflictError);
+      await expect(service.updateProfile("user-1", { email: "otro@example.com" })).rejects.toThrow(
+        ConflictError,
+      );
       expect(authRepo.update).not.toHaveBeenCalled();
     });
 
@@ -596,9 +571,9 @@ describe("AuthServiceImpl", () => {
     it("lanza NotFoundError si el usuario no existe", async () => {
       vi.mocked(authRepo.findById).mockResolvedValue(null);
 
-      await expect(
-        service.updateProfile("nonexistent", { firstName: "X" }),
-      ).rejects.toThrow(NotFoundError);
+      await expect(service.updateProfile("nonexistent", { firstName: "X" })).rejects.toThrow(
+        NotFoundError,
+      );
       expect(authRepo.update).not.toHaveBeenCalled();
     });
   });
@@ -609,10 +584,7 @@ describe("AuthServiceImpl", () => {
 
       await service.listUsersAdmin({ role: "ADMIN" }, { page: 2, limit: 50 });
 
-      expect(authRepo.findAllAdmin).toHaveBeenCalledWith(
-        { role: "ADMIN" },
-        { page: 2, limit: 50 },
-      );
+      expect(authRepo.findAllAdmin).toHaveBeenCalledWith({ role: "ADMIN" }, { page: 2, limit: 50 });
       expect(authRepo.findAllAdmin).toHaveBeenCalledOnce();
     });
 
@@ -621,19 +593,13 @@ describe("AuthServiceImpl", () => {
 
       await service.listUsersAdmin({}, { page: 1, limit: 20 });
 
-      expect(authRepo.findAllAdmin).toHaveBeenCalledWith(
-        {},
-        { page: 1, limit: 20 },
-      );
+      expect(authRepo.findAllAdmin).toHaveBeenCalledWith({}, { page: 1, limit: 20 });
     });
 
     it("propaga el search al repository junto con el role", async () => {
       vi.mocked(authRepo.findAllAdmin).mockResolvedValue({ users: [], total: 0 });
 
-      await service.listUsersAdmin(
-        { role: "CUSTOMER", search: "maria" },
-        { page: 1, limit: 20 },
-      );
+      await service.listUsersAdmin({ role: "CUSTOMER", search: "maria" }, { page: 1, limit: 20 });
 
       expect(authRepo.findAllAdmin).toHaveBeenCalledWith(
         { role: "CUSTOMER", search: "maria" },
@@ -682,9 +648,7 @@ describe("AuthServiceImpl", () => {
     it("lanza NotFoundError si el usuario no existe", async () => {
       vi.mocked(authRepo.findById).mockResolvedValue(null);
 
-      await expect(
-        service.changePassword("user-1", input),
-      ).rejects.toThrow(NotFoundError);
+      await expect(service.changePassword("user-1", input)).rejects.toThrow(NotFoundError);
       expect(bcrypt.compare).not.toHaveBeenCalled();
     });
 
@@ -712,15 +676,9 @@ describe("AuthServiceImpl", () => {
 
       await service.changePassword("user-1", input);
 
-      expect(bcrypt.compare).toHaveBeenCalledWith(
-        "OldPassword1",
-        "$2b$12$hashedpassword",
-      );
+      expect(bcrypt.compare).toHaveBeenCalledWith("OldPassword1", "$2b$12$hashedpassword");
       expect(bcrypt.hash).toHaveBeenCalledWith("NewPassword1", 12);
-      expect(authRepo.updatePassword).toHaveBeenCalledWith(
-        "user-1",
-        "$2b$12$newhashedpassword",
-      );
+      expect(authRepo.updatePassword).toHaveBeenCalledWith("user-1", "$2b$12$newhashedpassword");
       expect(refreshTokenRepo.revokeAllForUser).toHaveBeenCalledWith("user-1");
     });
 

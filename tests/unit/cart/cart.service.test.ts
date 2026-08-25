@@ -72,22 +72,36 @@ describe("CartServiceImpl", () => {
     it("lanza NotFoundError si la variante no existe", async () => {
       vi.mocked(cartRepo.findVariantById).mockResolvedValue(null);
 
-      await expect(service.addItem("user-1", { variantId: "var-1", quantity: 1 })).rejects.toThrow(NotFoundError);
+      await expect(service.addItem("user-1", { variantId: "var-1", quantity: 1 })).rejects.toThrow(
+        NotFoundError,
+      );
       expect(cartRepo.findOrCreateByUserId).not.toHaveBeenCalled();
     });
 
     it("lanza ConflictError si la variante está inactiva", async () => {
-      vi.mocked(cartRepo.findVariantById).mockResolvedValue({ id: "var-1", isActive: false, stock: 10 });
+      vi.mocked(cartRepo.findVariantById).mockResolvedValue({
+        id: "var-1",
+        isActive: false,
+        stock: 10,
+      });
 
-      await expect(service.addItem("user-1", { variantId: "var-1", quantity: 1 })).rejects.toThrow(ConflictError);
+      await expect(service.addItem("user-1", { variantId: "var-1", quantity: 1 })).rejects.toThrow(
+        ConflictError,
+      );
       expect(cartRepo.findOrCreateByUserId).not.toHaveBeenCalled();
     });
 
     it("lanza ConflictError con stock disponible cuando quantity excede stock", async () => {
-      vi.mocked(cartRepo.findVariantById).mockResolvedValue({ id: "var-1", isActive: true, stock: 3 });
+      vi.mocked(cartRepo.findVariantById).mockResolvedValue({
+        id: "var-1",
+        isActive: true,
+        stock: 3,
+      });
       vi.mocked(cartRepo.findOrCreateByUserId).mockResolvedValue(makeCart("user-1"));
 
-      const error = await service.addItem("user-1", { variantId: "var-1", quantity: 5 }).catch((e) => e);
+      const error = await service
+        .addItem("user-1", { variantId: "var-1", quantity: 5 })
+        .catch((e) => e);
 
       expect(error).toBeInstanceOf(ConflictError);
       expect(error.message).toContain("Disponible: 3");
@@ -95,7 +109,11 @@ describe("CartServiceImpl", () => {
 
     it("llama a upsertItem con incremento sobre cantidad existente", async () => {
       const existingItem = makeCartItem({ quantity: 2 });
-      vi.mocked(cartRepo.findVariantById).mockResolvedValue({ id: "var-1", isActive: true, stock: 10 });
+      vi.mocked(cartRepo.findVariantById).mockResolvedValue({
+        id: "var-1",
+        isActive: true,
+        stock: 10,
+      });
       vi.mocked(cartRepo.findOrCreateByUserId)
         .mockResolvedValueOnce(makeCart("user-1", [existingItem]))
         .mockResolvedValueOnce(makeCart("user-1", [makeCartItem({ quantity: 5 })]));
@@ -118,7 +136,9 @@ describe("CartServiceImpl", () => {
         variant: { id: "var-1", isActive: true, stock: 10 },
       });
 
-      await expect(service.updateItemQuantity("user-1", "item-1", { quantity: 5 })).rejects.toThrow(NotFoundError);
+      await expect(service.updateItemQuantity("user-1", "item-1", { quantity: 5 })).rejects.toThrow(
+        NotFoundError,
+      );
       expect(cartRepo.updateItemQuantity).not.toHaveBeenCalled();
     });
   });

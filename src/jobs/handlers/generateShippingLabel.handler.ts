@@ -9,9 +9,7 @@ export interface GenerateShippingLabelPayload {
   orderId: string;
 }
 
-export function createGenerateShippingLabelHandler(deps: {
-  orderRepository: OrderRepository;
-}) {
+export function createGenerateShippingLabelHandler(deps: { orderRepository: OrderRepository }) {
   return async function generateShippingLabelHandler(rawPayload: unknown): Promise<void> {
     const payload = rawPayload as GenerateShippingLabelPayload;
     const order = await deps.orderRepository.findByIdWithItems(payload.orderId);

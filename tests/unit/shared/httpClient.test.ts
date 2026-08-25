@@ -1,8 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import {
-  fetchWithRetry,
-  HttpRequestError,
-} from "../../../src/shared/utils/httpClient.js";
+import { fetchWithRetry, HttpRequestError } from "../../../src/shared/utils/httpClient.js";
 
 type FetchImpl = (url: string | URL, init?: RequestInit) => Promise<Response> | Response;
 
@@ -113,11 +110,7 @@ describe("fetchWithRetry", () => {
 
     const start = Date.now();
     await expect(
-      fetchWithRetry(
-        "https://api.example.com",
-        {},
-        { timeoutMs: 50, retries: 0 },
-      ),
+      fetchWithRetry("https://api.example.com", {}, { timeoutMs: 50, retries: 0 }),
     ).rejects.toThrow(HttpRequestError);
     expect(Date.now() - start).toBeGreaterThanOrEqual(45);
     expect(fetchMock).toHaveBeenCalledTimes(1);

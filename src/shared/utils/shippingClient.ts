@@ -135,13 +135,9 @@ export async function getAllShippingRates(
   destination: object,
   packages: object[],
 ): Promise<ShippingRateOption[]> {
-  const carriers = (process.env.SHIPPING_CARRIERS ?? "")
-    .split(",")
-    .map((c) => c.trim());
+  const carriers = (process.env.SHIPPING_CARRIERS ?? "").split(",").map((c) => c.trim());
   const results = await Promise.all(
-    carriers.map((carrier) =>
-      getShippingRate(carrier, origin, destination, packages),
-    ),
+    carriers.map((carrier) => getShippingRate(carrier, origin, destination, packages)),
   );
   return results.flat().sort((a, b) => a.totalPrice - b.totalPrice);
 }

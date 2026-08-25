@@ -1,13 +1,8 @@
 import type { Category } from "@prisma/client";
 import type { CategoryRepository, Pagination } from "./category.repository.js";
 import type { CategoryDTO } from "./category.dto.js";
-import {
-  NotFoundError,
-  ConflictError,
-} from "../../shared/errors/app-error.js";
-import {
-  generateUniqueSlug,
-} from "../../shared/utils/slugify.js";
+import { NotFoundError, ConflictError } from "../../shared/errors/app-error.js";
+import { generateUniqueSlug } from "../../shared/utils/slugify.js";
 
 interface CreateCategoryInput {
   name: string;
@@ -49,14 +44,8 @@ export class CategoryServiceImpl implements CategoryService {
     return categories.map(toDTO);
   }
 
-  async listCategoriesAdmin(
-    filters: { isActive?: boolean },
-    pagination: Pagination,
-  ) {
-    const { categories, total } = await this.repository.findAllAdmin(
-      filters,
-      pagination,
-    );
+  async listCategoriesAdmin(filters: { isActive?: boolean }, pagination: Pagination) {
+    const { categories, total } = await this.repository.findAllAdmin(filters, pagination);
 
     return {
       items: categories.map(toDTO),
@@ -86,9 +75,7 @@ export class CategoryServiceImpl implements CategoryService {
       throw new ConflictError("Ya existe una categoría con ese nombre");
     }
 
-    const slug = await generateUniqueSlug(data.name, (slug) =>
-      this.repository.slugExists(slug),
-    );
+    const slug = await generateUniqueSlug(data.name, (slug) => this.repository.slugExists(slug));
 
     const category = await this.repository.create({
       name: data.name,

@@ -78,9 +78,7 @@ describe("MetricsServiceImpl", () => {
 
     await service.getDashboardMetrics();
 
-    expect(metricsRepo.findLowStockVariants).toHaveBeenCalledWith(
-      LOW_STOCK_THRESHOLD,
-    );
+    expect(metricsRepo.findLowStockVariants).toHaveBeenCalledWith(LOW_STOCK_THRESHOLD);
     expect(metricsRepo.findLowStockVariants).toHaveBeenCalledWith(5);
   });
 

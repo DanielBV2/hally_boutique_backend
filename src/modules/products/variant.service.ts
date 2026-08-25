@@ -1,14 +1,8 @@
-import type {
-  VariantRepository,
-} from "./variant.repository.js";
+import type { VariantRepository } from "./variant.repository.js";
 import type { ProductRepository } from "./product.repository.js";
 import type { VariantAdminDTO } from "./variant.dto.js";
 import type { Prisma, Size } from "@prisma/client";
-import {
-  ConflictError,
-  NotFoundError,
-  ValidationError,
-} from "../../shared/errors/app-error.js";
+import { ConflictError, NotFoundError, ValidationError } from "../../shared/errors/app-error.js";
 import { generateUniqueSku } from "../../shared/utils/sku.js";
 
 interface CreateVariantInput {
@@ -28,10 +22,7 @@ interface UpdateVariantInput {
 
 export interface VariantService {
   listByProduct(productId: string): Promise<VariantAdminDTO[]>;
-  createVariant(
-    productId: string,
-    data: CreateVariantInput,
-  ): Promise<VariantAdminDTO>;
+  createVariant(productId: string, data: CreateVariantInput): Promise<VariantAdminDTO>;
   updateVariant(
     productId: string,
     variantId: string,
@@ -41,7 +32,15 @@ export interface VariantService {
 }
 
 function toAdminDTO(
-  variant: { id: string; size: string; color: string; sku: string; stock: number; priceDelta: Prisma.Decimal; isActive: boolean },
+  variant: {
+    id: string;
+    size: string;
+    color: string;
+    sku: string;
+    stock: number;
+    priceDelta: Prisma.Decimal;
+    isActive: boolean;
+  },
   basePrice: number,
 ): VariantAdminDTO {
   return {
@@ -74,10 +73,7 @@ export class VariantServiceImpl implements VariantService {
     return variants.map((v) => toAdminDTO(v, basePrice));
   }
 
-  async createVariant(
-    productId: string,
-    data: CreateVariantInput,
-  ): Promise<VariantAdminDTO> {
+  async createVariant(productId: string, data: CreateVariantInput): Promise<VariantAdminDTO> {
     const product = await this.productRepo.findById(productId);
     if (!product?.isActive) {
       throw new NotFoundError("Product");
@@ -87,9 +83,7 @@ export class VariantServiceImpl implements VariantService {
     const finalPrice = basePrice + data.priceDelta;
 
     if (finalPrice <= 0) {
-      throw new ValidationError(
-        "El precio final de la variante debe ser mayor a 0",
-      );
+      throw new ValidationError("El precio final de la variante debe ser mayor a 0");
     }
 
     const combinationExists = await this.variantRepo.existsCombination(
@@ -107,17 +101,12 @@ export class VariantServiceImpl implements VariantService {
     if (data.sku) {
       const skuExists = await this.variantRepo.skuExists(data.sku);
       if (skuExists) {
-        throw new ConflictError(
-          `El SKU "${data.sku}" ya está en uso`,
-        );
+        throw new ConflictError(`El SKU "${data.sku}" ya está en uso`);
       }
       sku = data.sku;
     } else {
-      sku = await generateUniqueSku(
-        product.name,
-        data.color,
-        data.size,
-        (candidate) => this.variantRepo.skuExists(candidate),
+      sku = await generateUniqueSku(product.name, data.color, data.size, (candidate) =>
+        this.variantRepo.skuExists(candidate),
       );
     }
 
@@ -152,17 +141,13 @@ export class VariantServiceImpl implements VariantService {
     const finalPrice = basePrice + priceDelta;
 
     if (finalPrice <= 0) {
-      throw new ValidationError(
-        "El precio final de la variante debe ser mayor a 0",
-      );
+      throw new ValidationError("El precio final de la variante debe ser mayor a 0");
     }
 
     if (data.sku !== undefined && data.sku !== existing.sku) {
       const skuExists = await this.variantRepo.skuExists(data.sku, variantId);
       if (skuExists) {
-        throw new ConflictError(
-          `El SKU "${data.sku}" ya está en uso`,
-        );
+        throw new ConflictError(`El SKU "${data.sku}" ya está en uso`);
       }
     }
 

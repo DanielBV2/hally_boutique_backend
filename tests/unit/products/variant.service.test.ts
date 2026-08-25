@@ -4,7 +4,11 @@ import { VariantServiceImpl } from "../../../src/modules/products/variant.servic
 import type { VariantRepository } from "../../../src/modules/products/variant.repository.js";
 import type { ProductRepository } from "../../../src/modules/products/product.repository.js";
 import type { ProductWithRelations } from "../../../src/modules/products/product.repository.js";
-import { ConflictError, NotFoundError, ValidationError } from "../../../src/shared/errors/app-error.js";
+import {
+  ConflictError,
+  NotFoundError,
+  ValidationError,
+} from "../../../src/shared/errors/app-error.js";
 
 function mockVariantRepo(): VariantRepository {
   return {
@@ -140,9 +144,7 @@ describe("VariantServiceImpl", () => {
     });
 
     it("genera el SKU desde nombre + color + talla si no se envía", async () => {
-      vi.mocked(productRepo.findById).mockResolvedValue(
-        makeProduct({ name: "Camisa Oxford" }),
-      );
+      vi.mocked(productRepo.findById).mockResolvedValue(makeProduct({ name: "Camisa Oxford" }));
       vi.mocked(variantRepo.existsCombination).mockResolvedValue(false);
       vi.mocked(variantRepo.skuExists).mockResolvedValue(false);
       vi.mocked(variantRepo.create).mockResolvedValue(makeVariant());
@@ -163,13 +165,9 @@ describe("VariantServiceImpl", () => {
     });
 
     it("agrega sufijo numérico al SKU generado si ya existe", async () => {
-      vi.mocked(productRepo.findById).mockResolvedValue(
-        makeProduct({ name: "Camisa Oxford" }),
-      );
+      vi.mocked(productRepo.findById).mockResolvedValue(makeProduct({ name: "Camisa Oxford" }));
       vi.mocked(variantRepo.existsCombination).mockResolvedValue(false);
-      vi.mocked(variantRepo.skuExists)
-        .mockResolvedValueOnce(true)
-        .mockResolvedValueOnce(false);
+      vi.mocked(variantRepo.skuExists).mockResolvedValueOnce(true).mockResolvedValueOnce(false);
       vi.mocked(variantRepo.create).mockResolvedValue(makeVariant());
 
       const rest = {
@@ -189,9 +187,7 @@ describe("VariantServiceImpl", () => {
     });
 
     it("mantiene el SKU manual sin modificarlo", async () => {
-      vi.mocked(productRepo.findById).mockResolvedValue(
-        makeProduct({ name: "Camisa Oxford" }),
-      );
+      vi.mocked(productRepo.findById).mockResolvedValue(makeProduct({ name: "Camisa Oxford" }));
       vi.mocked(variantRepo.existsCombination).mockResolvedValue(false);
       vi.mocked(variantRepo.skuExists).mockResolvedValue(false);
       vi.mocked(variantRepo.create).mockResolvedValue(makeVariant());

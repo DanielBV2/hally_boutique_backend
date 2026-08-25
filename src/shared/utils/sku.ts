@@ -6,11 +6,7 @@ function normalize(text: string): string {
     .toUpperCase();
 }
 
-export function buildSkuBase(
-  productName: string,
-  color: string,
-  size: string,
-): string {
+export function buildSkuBase(productName: string, color: string, size: string): string {
   const nameAbbr = normalize(productName)
     .split(/\s+/)
     .filter((word) => word.length > 0)

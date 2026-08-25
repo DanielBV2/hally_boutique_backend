@@ -33,10 +33,7 @@ app.get("/health", async (_req, res) => {
     await Promise.race([
       prisma.$queryRaw`SELECT 1`,
       new Promise((_, reject) => {
-        timer = setTimeout(
-          () => reject(new Error("Database ping timeout")),
-          DB_PING_TIMEOUT_MS,
-        );
+        timer = setTimeout(() => reject(new Error("Database ping timeout")), DB_PING_TIMEOUT_MS);
       }),
     ]);
     res.status(200).json({ status: "ok", checks: { database: "ok" } });

@@ -1,26 +1,17 @@
 import type { CartRepository, CartWithItems } from "./cart.repository.js";
 import type { CartDTO, CartItemDTO } from "./cart.dto.js";
 import type { AddCartItemInput, UpdateCartItemInput } from "./cart.schema.js";
-import {
-  NotFoundError,
-  ConflictError,
-} from "../../shared/errors/app-error.js";
+import { NotFoundError, ConflictError } from "../../shared/errors/app-error.js";
 
 export interface CartService {
   getCart(userId: string): Promise<CartDTO>;
   addItem(userId: string, data: AddCartItemInput): Promise<CartDTO>;
-  updateItemQuantity(
-    userId: string,
-    itemId: string,
-    data: UpdateCartItemInput,
-  ): Promise<CartDTO>;
+  updateItemQuantity(userId: string, itemId: string, data: UpdateCartItemInput): Promise<CartDTO>;
   removeItem(userId: string, itemId: string): Promise<CartDTO>;
   clearCart(userId: string): Promise<void>;
 }
 
-function toCartItemDTO(
-  item: CartWithItems["items"][number],
-): CartItemDTO {
+function toCartItemDTO(item: CartWithItems["items"][number]): CartItemDTO {
   const variant = item.variant;
   const product = variant.product;
   const unitPrice = Number(product.basePrice) + Number(variant.priceDelta);
@@ -74,9 +65,7 @@ export class CartServiceImpl implements CartService {
 
     const cart = await this.repository.findOrCreateByUserId(userId);
 
-    const existingItem = cart.items.find(
-      (i) => i.variantId === data.variantId,
-    );
+    const existingItem = cart.items.find((i) => i.variantId === data.variantId);
     const currentQuantity = existingItem?.quantity ?? 0;
     const requestedTotal = currentQuantity + data.quantity;
 
@@ -105,9 +94,7 @@ export class CartServiceImpl implements CartService {
     }
 
     if (data.quantity > cartItem.variant.stock) {
-      throw new ConflictError(
-        `Stock insuficiente. Disponible: ${cartItem.variant.stock}`,
-      );
+      throw new ConflictError(`Stock insuficiente. Disponible: ${cartItem.variant.stock}`);
     }
 
     await this.repository.updateItemQuantity(itemId, data.quantity);
@@ -116,10 +103,7 @@ export class CartServiceImpl implements CartService {
     return toCartDTO(updatedCart);
   }
 
-  async removeItem(
-    userId: string,
-    itemId: string,
-  ): Promise<CartDTO> {
+  async removeItem(userId: string, itemId: string): Promise<CartDTO> {
     const cart = await this.repository.findOrCreateByUserId(userId);
 
     const cartItem = await this.repository.findItemById(itemId);

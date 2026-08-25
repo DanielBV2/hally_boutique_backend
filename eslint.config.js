@@ -32,10 +32,7 @@ export default tseslint.config(
 
       // Alinea con verbatimModuleSyntax — fuerza a marcar explícitamente
       // los imports que son solo de tipos.
-      "@typescript-eslint/consistent-type-imports": [
-        "error",
-        { fixStyle: "inline-type-imports" },
-      ],
+      "@typescript-eslint/consistent-type-imports": ["error", { fixStyle: "inline-type-imports" }],
 
       // El proyecto usa pino (logger) en todos lados — console.log no
       // debería colarse en código productivo.

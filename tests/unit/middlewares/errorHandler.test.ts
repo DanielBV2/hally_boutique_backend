@@ -33,14 +33,11 @@ describe("errorHandler", () => {
   });
 
   it("P2002 (unique constraint) → 409 CONFLICT", () => {
-    const err = new Prisma.PrismaClientKnownRequestError(
-      "Unique constraint failed",
-      {
-        code: "P2002",
-        clientVersion: "test",
-        meta: { target: ["email"] },
-      },
-    );
+    const err = new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+      code: "P2002",
+      clientVersion: "test",
+      meta: { target: ["email"] },
+    });
 
     const res = invoke(err);
 
@@ -55,14 +52,11 @@ describe("errorHandler", () => {
   });
 
   it("P2003 (foreign key) → 409 CONFLICT", () => {
-    const err = new Prisma.PrismaClientKnownRequestError(
-      "Foreign key constraint failed",
-      {
-        code: "P2003",
-        clientVersion: "test",
-        meta: { field_name: "orders_shippingAddressId_fkey" },
-      },
-    );
+    const err = new Prisma.PrismaClientKnownRequestError("Foreign key constraint failed", {
+      code: "P2003",
+      clientVersion: "test",
+      meta: { field_name: "orders_shippingAddressId_fkey" },
+    });
 
     const res = invoke(err);
 

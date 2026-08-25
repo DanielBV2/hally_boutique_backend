@@ -16,10 +16,7 @@ const ZONE_MAP: Record<string, string> = {
   "San Andrés y Providencia": "ESPECIAL",
 };
 
-const ZONE_RATES: Record<
-  string,
-  { base: number; perKg: number }
-> = {
+const ZONE_RATES: Record<string, { base: number; perKg: number }> = {
   LOCAL: { base: 8000, perKg: 1500 },
   REGIONAL: { base: 12000, perKg: 2000 },
   NACIONAL: { base: 18000, perKg: 2500 },

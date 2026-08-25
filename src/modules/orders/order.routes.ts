@@ -43,23 +43,11 @@ router.patch(
   orderController.updateStatusAdmin,
 );
 
-router.get(
-  "/",
-  validateSchemaMiddleware(listOrdersQuerySchema, "query"),
-  orderController.list,
-);
+router.get("/", validateSchemaMiddleware(listOrdersQuerySchema, "query"), orderController.list);
 
-router.get(
-  "/:id",
-  validateSchemaMiddleware(idParamsSchema, "params"),
-  orderController.getById,
-);
+router.get("/:id", validateSchemaMiddleware(idParamsSchema, "params"), orderController.getById);
 
-router.post(
-  "/",
-  validateSchemaMiddleware(createOrderSchema, "body"),
-  orderController.create,
-);
+router.post("/", validateSchemaMiddleware(createOrderSchema, "body"), orderController.create);
 
 router.post(
   "/:orderId/checkout",

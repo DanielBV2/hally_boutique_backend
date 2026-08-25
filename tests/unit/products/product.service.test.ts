@@ -2,7 +2,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 import { ProductServiceImpl } from "../../../src/modules/products/product.service.js";
 import type { ProductRepository } from "../../../src/modules/products/product.repository.js";
-import type { ProductWithRelations, ProductWithListRelations } from "../../../src/modules/products/product.repository.js";
+import type {
+  ProductWithRelations,
+  ProductWithListRelations,
+} from "../../../src/modules/products/product.repository.js";
 import { NotFoundError } from "../../../src/shared/errors/app-error.js";
 
 function mockProductRepo(): ProductRepository {
@@ -73,17 +76,15 @@ describe("ProductServiceImpl", () => {
     const input = {
       name: "Camiseta Básica",
       description: "Una camiseta básica de algodón para todos los días",
-    basePrice: 50000,
-    currency: "COP",
-    weightGrams: 300,
-    categoryId: "cat-1",
+      basePrice: 50000,
+      currency: "COP",
+      weightGrams: 300,
+      categoryId: "cat-1",
     };
 
     it("genera slug con sufijo -2 cuando hay colisión en el slug base", async () => {
       vi.mocked(productRepo.categoryExists).mockResolvedValue(true);
-      vi.mocked(productRepo.slugExists)
-        .mockResolvedValueOnce(true)
-        .mockResolvedValueOnce(false);
+      vi.mocked(productRepo.slugExists).mockResolvedValueOnce(true).mockResolvedValueOnce(false);
       vi.mocked(productRepo.create).mockResolvedValue(makeProduct({ slug: "camiseta-basica-2" }));
 
       const result = await service.createProduct(input);
@@ -106,7 +107,12 @@ describe("ProductServiceImpl", () => {
 
   describe("listProducts", () => {
     it("llama a repository.findMany con los filtros, paginación y orden recibidos", async () => {
-      const filters = { categoryId: undefined, search: undefined, minPrice: undefined, maxPrice: undefined };
+      const filters = {
+        categoryId: undefined,
+        search: undefined,
+        minPrice: undefined,
+        maxPrice: undefined,
+      };
       const pagination = { page: 1, limit: 20 };
       const sort = { sortBy: "createdAt" as const, sortOrder: "desc" as const };
 
@@ -121,22 +127,25 @@ describe("ProductServiceImpl", () => {
     });
 
     it("expone hasStock en los items (true si hay al menos una variante activa con stock)", async () => {
-      const filters = { categoryId: undefined, search: undefined, minPrice: undefined, maxPrice: undefined };
+      const filters = {
+        categoryId: undefined,
+        search: undefined,
+        minPrice: undefined,
+        maxPrice: undefined,
+      };
       const pagination = { page: 1, limit: 20 };
       const sort = { sortBy: "createdAt" as const, sortOrder: "desc" as const };
 
       vi.mocked(productRepo.findMany).mockResolvedValue({
         products: [
-          makeListItem({ variants: [
-            { stock: 0, isActive: true },
-            { stock: 5, isActive: true },
-          ] }),
-          makeListItem({ id: "prod-2", variants: [
-            { stock: 0, isActive: true },
-          ] }),
-          makeListItem({ id: "prod-3", variants: [
-            { stock: 3, isActive: false },
-          ] }),
+          makeListItem({
+            variants: [
+              { stock: 0, isActive: true },
+              { stock: 5, isActive: true },
+            ],
+          }),
+          makeListItem({ id: "prod-2", variants: [{ stock: 0, isActive: true }] }),
+          makeListItem({ id: "prod-3", variants: [{ stock: 3, isActive: false }] }),
         ],
         total: 3,
       });
@@ -153,9 +162,15 @@ describe("ProductServiceImpl", () => {
     const pagination = { page: 1, limit: 20 };
 
     it("llama a repository.findManyAdmin con isActive undefined cuando no llega filtro", async () => {
-      vi.mocked(productRepo.findManyAdmin).mockResolvedValue({ products: [makeListItem()], total: 1 });
+      vi.mocked(productRepo.findManyAdmin).mockResolvedValue({
+        products: [makeListItem()],
+        total: 1,
+      });
 
-      const result = await service.listProductsAdmin({ isActive: undefined, categoryId: undefined }, pagination);
+      const result = await service.listProductsAdmin(
+        { isActive: undefined, categoryId: undefined },
+        pagination,
+      );
 
       expect(productRepo.findManyAdmin).toHaveBeenCalledWith(
         { isActive: undefined, categoryId: undefined },
@@ -215,8 +230,22 @@ describe("ProductServiceImpl", () => {
         basePrice: 50000,
         variants: [
           { id: "v1", size: "M", color: "Rojo", stock: 5, priceDelta: 0, isActive: true } as any,
-          { id: "v2", size: "L", color: "Azul", stock: 0, priceDelta: 10000, isActive: true } as any,
-          { id: "v3", size: "S", color: "Verde", stock: 3, priceDelta: -5000, isActive: true } as any,
+          {
+            id: "v2",
+            size: "L",
+            color: "Azul",
+            stock: 0,
+            priceDelta: 10000,
+            isActive: true,
+          } as any,
+          {
+            id: "v3",
+            size: "S",
+            color: "Verde",
+            stock: 3,
+            priceDelta: -5000,
+            isActive: true,
+          } as any,
         ],
       });
       vi.mocked(productRepo.findBySlug).mockResolvedValue(product);
@@ -225,9 +254,30 @@ describe("ProductServiceImpl", () => {
 
       expect(result.variants).toHaveLength(3);
 
-      expect(result.variants[0]).toMatchObject({ id: "v1", size: "M", color: "Rojo", stock: 5, price: 50000, inStock: true });
-      expect(result.variants[1]).toMatchObject({ id: "v2", size: "L", color: "Azul", stock: 0, price: 60000, inStock: false });
-      expect(result.variants[2]).toMatchObject({ id: "v3", size: "S", color: "Verde", stock: 3, price: 45000, inStock: true });
+      expect(result.variants[0]).toMatchObject({
+        id: "v1",
+        size: "M",
+        color: "Rojo",
+        stock: 5,
+        price: 50000,
+        inStock: true,
+      });
+      expect(result.variants[1]).toMatchObject({
+        id: "v2",
+        size: "L",
+        color: "Azul",
+        stock: 0,
+        price: 60000,
+        inStock: false,
+      });
+      expect(result.variants[2]).toMatchObject({
+        id: "v3",
+        size: "S",
+        color: "Verde",
+        stock: 3,
+        price: 45000,
+        inStock: true,
+      });
     });
 
     it("filtra variantes inactivas del DTO", async () => {
@@ -254,10 +304,7 @@ describe("ProductServiceImpl", () => {
 
       await service.updateProduct("prod-1", { isActive: false });
 
-      expect(productRepo.update).toHaveBeenCalledWith(
-        "prod-1",
-        { isActive: false },
-      );
+      expect(productRepo.update).toHaveBeenCalledWith("prod-1", { isActive: false });
     });
 
     it("no envía isActive cuando el campo no llega", async () => {

@@ -30,7 +30,9 @@ describe("voidWompiTransaction", () => {
   it("retorna success false con el error cuando Wompi responde 4xx", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => new Response(JSON.stringify({ message: "no encontrada" }), { status: 404 })),
+      vi.fn(
+        async () => new Response(JSON.stringify({ message: "no encontrada" }), { status: 404 }),
+      ),
     );
 
     const result = await voidWompiTransaction("txn-1", "prv_test");

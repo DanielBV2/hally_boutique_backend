@@ -6,7 +6,10 @@ import type { OrderRepository } from "../orders/order.repository.js";
 import type { CartRepository } from "../cart/cart.repository.js";
 import { NotFoundError, ConflictError, UnauthorizedError } from "../../shared/errors/app-error.js";
 import { env } from "../../config/env.js";
-import { generateIntegritySignature, verifyEventChecksum } from "../../shared/utils/wompiSignature.js";
+import {
+  generateIntegritySignature,
+  verifyEventChecksum,
+} from "../../shared/utils/wompiSignature.js";
 import { voidWompiTransaction } from "../../shared/utils/wompiClient.js";
 import type { JobQueue } from "../../shared/utils/jobQueue.js";
 import { logger } from "../../shared/utils/logger.js";
@@ -117,7 +120,10 @@ export class PaymentServiceImpl implements PaymentService {
     await this.paymentRepository.updateProviderTransactionId(payment.id, transaction.id);
 
     if (payment.order.status !== "PENDING") {
-      logger.info({ ...webhookLog, orderStatus: payment.order.status }, "[Payments] Webhook ignorado: orden ya procesada");
+      logger.info(
+        { ...webhookLog, orderStatus: payment.order.status },
+        "[Payments] Webhook ignorado: orden ya procesada",
+      );
       return;
     }
 
@@ -129,10 +135,7 @@ export class PaymentServiceImpl implements PaymentService {
 
         try {
           await this.transactionRunner.runTransaction(async (tx) => {
-            claimed = await this.orderRepository.tryTransitionToPaid(
-              payment.order.id,
-              tx,
-            );
+            claimed = await this.orderRepository.tryTransitionToPaid(payment.order.id, tx);
             if (!claimed) {
               return;
             }
@@ -150,30 +153,27 @@ export class PaymentServiceImpl implements PaymentService {
             }
 
             await this.paymentRepository.updateStatus(payment.id, "SUCCEEDED", tx);
-            const cart = await this.cartRepository.findOrCreateByUserId(
-              payment.order.userId,
-              tx,
-            );
+            const cart = await this.cartRepository.findOrCreateByUserId(payment.order.userId, tx);
             await this.cartRepository.clearCart(cart.id, tx);
 
             // Encolado atómico con la transición a PAID (outbox): si el
             // proceso muere después del commit, el job ya está persistido.
             if (order.shippingCarrier && order.shippingService) {
-              await this.jobQueue.enqueue({
-                type: "GENERATE_SHIPPING_LABEL",
-                payload: { orderId: order.id },
-                uniqueKey: `shipping-label:${order.id}`,
-              }, tx);
+              await this.jobQueue.enqueue(
+                {
+                  type: "GENERATE_SHIPPING_LABEL",
+                  payload: { orderId: order.id },
+                  uniqueKey: `shipping-label:${order.id}`,
+                },
+                tx,
+              );
             }
           });
         } catch {
           if (!allStockAvailable) {
             await this.orderRepository.updateStatus(payment.order.id, "CANCELLED");
 
-            const voidResult = await voidWompiTransaction(
-              transaction.id,
-              env.WOMPI_PRIVATE_KEY,
-            );
+            const voidResult = await voidWompiTransaction(transaction.id, env.WOMPI_PRIVATE_KEY);
 
             if (voidResult.success) {
               await this.paymentRepository.updateStatus(payment.id, "REFUNDED");
@@ -220,25 +220,16 @@ export class PaymentServiceImpl implements PaymentService {
       }
 
       case "PENDING":
-        logger.info(
-          { ...webhookLog },
-          "[Payments] Pago PENDING: se espera el próximo webhook",
-        );
+        logger.info({ ...webhookLog }, "[Payments] Pago PENDING: se espera el próximo webhook");
         break;
     }
   }
 }
 
-function wompiWebhookSchemaSafeParse(
-  raw: unknown,
-  reqId?: string,
-): WompiWebhookInput | null {
+function wompiWebhookSchemaSafeParse(raw: unknown, reqId?: string): WompiWebhookInput | null {
   const result = wompiWebhookSchema.safeParse(raw);
   if (!result.success) {
-    logger.warn(
-      { reqId, errors: result.error.flatten() },
-      "[Payments] Webhook validation failed",
-    );
+    logger.warn({ reqId, errors: result.error.flatten() }, "[Payments] Webhook validation failed");
     return null;
   }
   return result.data;

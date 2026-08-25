@@ -1,8 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import {
-  buildSkuBase,
-  generateUniqueSku,
-} from "../../../src/shared/utils/sku.js";
+import { buildSkuBase, generateUniqueSku } from "../../../src/shared/utils/sku.js";
 
 describe("buildSkuBase", () => {
   it("abrevia cada palabra del nombre con 3 letras y el color con 2", () => {
@@ -18,9 +15,7 @@ describe("buildSkuBase", () => {
   });
 
   it("limita a 3 palabras del nombre", () => {
-    expect(buildSkuBase("Camisa Oxford Manga Larga", "Rojo", "S")).toBe(
-      "CAM-OXF-MAN-RO-S",
-    );
+    expect(buildSkuBase("Camisa Oxford Manga Larga", "Rojo", "S")).toBe("CAM-OXF-MAN-RO-S");
   });
 });
 
@@ -35,10 +30,7 @@ describe("generateUniqueSku", () => {
   });
 
   it("agrega sufijo numérico sin guion cuando hay colisión", async () => {
-    const checkExists = vi
-      .fn()
-      .mockResolvedValueOnce(true)
-      .mockResolvedValueOnce(false);
+    const checkExists = vi.fn().mockResolvedValueOnce(true).mockResolvedValueOnce(false);
 
     const sku = await generateUniqueSku("Camisa Oxford", "Azul", "M", checkExists);
 

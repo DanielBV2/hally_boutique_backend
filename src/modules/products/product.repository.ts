@@ -64,10 +64,7 @@ export interface ProductRepository {
   slugExists(slug: string, excludeId?: string): Promise<boolean>;
   categoryExists(categoryId: string): Promise<boolean>;
   create(data: CreateProductData): Promise<ProductWithRelations>;
-  update(
-    id: string,
-    data: Partial<CreateProductData>,
-  ): Promise<ProductWithRelations>;
+  update(id: string, data: Partial<CreateProductData>): Promise<ProductWithRelations>;
   softDelete(id: string): Promise<void>;
   addImage(
     productId: string,
@@ -91,11 +88,7 @@ const includeList = {
 export class PrismaProductRepository implements ProductRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
-  async findMany(
-    filters: ProductFilters,
-    pagination: Pagination,
-    sort: SortOptions,
-  ) {
+  async findMany(filters: ProductFilters, pagination: Pagination, sort: SortOptions) {
     const where = this.buildWhereClause(filters);
     const { page, limit } = pagination;
     const skip = (page - 1) * limit;
@@ -217,9 +210,7 @@ export class PrismaProductRepository implements ProductRepository {
       where: { id: imageId, productId },
     });
     if (!image) {
-      const { NotFoundError } = await import(
-        "../../shared/errors/app-error.js"
-      );
+      const { NotFoundError } = await import("../../shared/errors/app-error.js");
       throw new NotFoundError("Image");
     }
     await this.prisma.productImage.delete({ where: { id: imageId } });

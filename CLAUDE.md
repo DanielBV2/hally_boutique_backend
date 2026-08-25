@@ -1,6 +1,7 @@
 # HallyBoutique Backend — Contexto del proyecto
 
 ## Stack
+
 - Node.js + TypeScript (tipado estricto, evitar `any`)
 - Express
 - PostgreSQL + Prisma ORM
@@ -9,6 +10,7 @@
 - Stripe para pagos (diseñado para soportar más proveedores después, ver `PaymentProvider`)
 
 ## Objetivo del proyecto
+
 Backend de e-commerce de ropa. Empieza como proyecto de portafolio con arquitectura
 impecable y bien testeada, con la intención de evolucionar a tienda real en producción
 (Colombia). Todas las decisiones de diseño deben tolerar ese crecimiento sin requerir
@@ -42,6 +44,7 @@ src/modules/<dominio>/
   endpoint. No exponer directamente los modelos de Prisma al cliente.
 
 ### Reglas de negocio importantes ya definidas
+
 - Nunca borrar `Order` con pago asociado — usar `cancelOrder` (cambia status), no `deleteOrder`.
 - Stock vive en `Variant`, nunca en `Product`.
 - `Order`/`OrderItem` guardan snapshot de precio/nombre — nunca recalcular desde el catálogo actual.
@@ -57,25 +60,29 @@ src/modules/<dominio>/
   Nunca hacer read-then-write simple para descontar stock.
 
 ## Validación
+
 Todas las rutas que reciben `body`, `params` o `query` deben usar Zod +
 `validateSchemaMiddleware` (definido en `src/middlewares/`). No confiar en tipado
 de TypeScript solo — validar en runtime siempre.
 
 ## Respuestas de API
+
 Usar un formato consistente definido en `src/shared/types/`:
+
 ```ts
 type ApiResponse<T> =
-  | { success: true; data: T }
-  | { success: false; error: { code: string; message: string } };
+  { success: true; data: T } | { success: false; error: { code: string; message: string } };
 ```
 
 ## Manejo de errores
+
 Usar clases de error custom en `src/shared/errors/` (ej. `NotFoundError`,
 `ValidationError`, `UnauthorizedError`) capturadas por un `errorHandler` middleware
 centralizado. Los controllers no hacen try/catch manual para cada caso — lanzan el
 error custom y el middleware lo traduce a la respuesta HTTP correcta.
 
 ### Nota sobre Express 5
+
 Proyecto usa Express 5. Los controllers/services usan async/await; los errores
 lanzados (throw) dentro de funciones async son capturados automáticamente por
 Express y enrutados al errorHandler — NO se necesita wrapper catchAsync/asyncHandler.
@@ -88,8 +95,10 @@ propiedad completa. body y params sí se pueden reasignar normalmente
 (req[target] = result.data), no cambiaron en Express 5.
 
 ## Auth
+
 `authMiddleware` valida JWT del header `Authorization: Bearer <token>` e inyecta
 `req.user`. `roleMiddleware` restringe por rol (`CUSTOMER` | `ADMIN`).
+
 - Passwords hasheadas con bcrypt (12 rounds), nunca texto plano.
 - JWT payload mínimo: { id, email, role }. Expira según JWT_EXPIRES_IN.
 - Registro público siempre crea role: CUSTOMER. No existe endpoint para
@@ -102,8 +111,10 @@ propiedad completa. body y params sí se pueden reasignar normalmente
   de larga duración, aceptable para desarrollo pero no ideal para producción.
 
 ## Perfil — PATCH /api/auth/me (edición de perfil) COMPLETADO Y VERIFICADO
+
 Nuevo endpoint para actualizar el perfil del usuario autenticado (usado por el
 frontend en /cuenta). Contracto:
+
 - `PATCH /api/auth/me`, authMiddleware + validateSchemaMiddleware(updateProfileSchema).
 - Body parcial `{ firstName?, lastName?, email?, phone? }` (Zod: min 2/max 100
   para nombres, email válido, phone `string | null`). Refine: al menos 1 campo.
@@ -120,10 +131,11 @@ frontend en /cuenta). Contracto:
   y GET /auth/me lee de DB por userId.
 - 6 unit tests nuevos (updateProfile en auth.service.test.ts); total 172 tests.
 - OpenAPI: PATCH /api/auth/me + schema UpdateProfileRequest (minProperties: 1).
-Verificado end-to-end vía BFF (register → PATCH → GET /me): nombre/apellido/teléfono
-reflejados, cambio de email reflejado, email de otro usuario → 409, sin sesión → 401.
+  Verificado end-to-end vía BFF (register → PATCH → GET /me): nombre/apellido/teléfono
+  reflejados, cambio de email reflejado, email de otro usuario → 409, sin sesión → 401.
 
 ## Arquitectura de autenticación Frontend-Backend (decisión, a implementar en frontend)
+
 Patrón BFF (Backend For Frontend): las cookies httpOnly viven en el
 dominio de Next.js, NUNCA en el de Express. El navegador solo habla con
 las Route Handlers de Next.js (server-side), que leen la cookie, extraen
@@ -143,6 +155,7 @@ Express/authMiddleware NO requieren ningún cambio — siguen esperando
 Bearer token exactamente como siempre.
 
 ## Refresh Tokens — COMPLETADO Y VERIFICADO
+
 Access token JWT reducido a 15 minutos de vida (antes 7 días). Refresh
 token opaco (crypto random, 40 bytes), hasheado con SHA256 en DB, nunca
 almacenado en texto plano.
@@ -163,6 +176,7 @@ regenera el cliente automáticamente en este proyecto — requiere
 prisma generate manual después de cada migración, repetido 3+ veces.
 
 ## Forgot-password (Resend) — COMPLETADO Y VERIFICADO
+
 Proveedor: Resend (elegido tras comparar contra SendGrid/Mailgun/Postmark/
 Brevo — mejor tier gratuito, mejor DX, SDK TypeScript nativo). Modo de
 pruebas usa el dominio onboarding@resend.dev de Resend, sin necesitar
@@ -186,6 +200,7 @@ registrado, no una restricción del proveedor).
 112/112 tests pasando.
 
 ## Categories (implementado)
+
 - Mismo patrón de soft delete (isActive) que Product y Variant.
 - Slug generado en el Service a partir de name, con colisión manejada igual
   que products (sufijo numérico incremental).
@@ -195,6 +210,7 @@ registrado, no una restricción del proveedor).
   POST /api/categories.
 
 ## Orders + Payments — Decisión de arquitectura
+
 Flujo elegido: descuento de stock DIFERIDO hasta confirmación de pago (no al
 crear la orden). Razón: evita necesitar jobs de expiración para órdenes
 abandonadas; el trade-off aceptado es el caso raro de sobreventa en alta
@@ -206,6 +222,7 @@ julio 2026) — se descartó antes de implementar nada. El enum PaymentProvider
 en el schema ya contempla WOMPI.
 
 Secuencia:
+
 1. POST /orders crea Order (PENDING) + Payment (PENDING) desde el carrito,
    snapshot de OrderItems, SIN tocar stock. Genera un link de Wompi Web
    Checkout (hospedado — el cliente nunca ingresa datos de tarjeta en
@@ -224,6 +241,7 @@ integración de formulario de tarjeta propio — menor superficie de riesgo,
 tu servidor nunca procesa datos de tarjeta. Moneda nativa COP, sin conversión.
 
 ## Orders (implementado, sin Payment todavía)
+
 - POST /orders crea Order + OrderItems desde el carrito actual, snapshot
   completo de nombre/precio/talla/color al momento de la compra.
 - NO crea Payment todavía (ese registro se crea en el módulo payments, al
@@ -238,6 +256,7 @@ tu servidor nunca procesa datos de tarjeta. Moneda nativa COP, sin conversión.
   funcionalidad futura no diseñada aún.
 
 ## Shipping (Envia.com) — Fase 1 COMPLETADA Y VERIFICADA
+
 Flujo completo probado end-to-end en sandbox: shipping-quote (cotización
 real de InterRapidísimo/Coordinadora vía API), shipping-selection (con
 re-cotización autoritativa), envío gratis sobre FREE_SHIPPING_THRESHOLD,
@@ -246,6 +265,7 @@ envío (409), pago completo con Wompi incluyendo IVA + envío en el total,
 descuento de stock y vaciado de carrito confirmados tras pago exitoso.
 
 Bugs de formato de la API de Envia.com resueltos:
+
 - state debe ser código de 3 letras (ej. "BOL"), no nombre completo del
   departamento — tabla de conversión en colombiaDepartmentCodes.ts.
 - packages requiere el campo "content" (descripción del contenido).
@@ -256,6 +276,7 @@ Bugs de formato de la API de Envia.com resueltos:
   llaves reales, los montos reflejarán tarifas reales.
 
 ## Shipping (Envia.com) — Errores de cotización visibles (mejora #10) — COMPLETADO
+
 getShippingRate tragaba los errores en silencio (`catch { return []; }`): si
 Envia.com fallaba (timeout, 5xx, respuesta sin datos), el checkout caía al
 estimado estático sin dejar NINGÚN rastro de qué pasó — parecía que la
@@ -274,6 +295,7 @@ cotización real "simplemente no existía".
 148/148 tests pasando, typecheck limpio.
 
 ## Cart — carreras de read-then-write eliminadas (mejora #11) — COMPLETADO
+
 Dos métodos del CartRepository hacían read-then-write (leer y luego
 decidir en base a lo leído), una condición de carrera clásica: con dos
 peticiones concurrentes para el mismo usuario/variante, ambas podían leer
@@ -285,8 +307,8 @@ peticiones concurrentes para el mismo usuario/variante, ambas podían leer
   (userId es `@unique`). Sigue aceptando `tx?` para el webhook de pago.
 - `upsertItem(cartId, variantId, quantity)`: antes `findUnique` +
   `update`/`create`; ahora `prisma.cartItem.upsert({ where: {
-  cartId_variantId }, update: { quantity: { increment: quantity } },
-  create: ... })` (clave compuesta única `@@unique([cartId, variantId])`).
+cartId_variantId }, update: { quantity: { increment: quantity } },
+create: ... })` (clave compuesta única `@@unique([cartId, variantId])`).
   Dos adds concurrentes ya no se pisan: el incremento es atómico.
 
 Mismo comportamiento observable (item existente suma cantidad; nuevo se
@@ -294,6 +316,7 @@ crea con quantity), solo que sin ventana de carrera. Sin cambio de
 interfaces, sin cambios en tests (los services mockean la interfaz).
 
 ## Tipos de transacción tipificados (mejora #12) — COMPLETADO
+
 `TransactionRunner` en `payment.service.ts` usaba `(tx: any)` (con un
 eslint-disable encima) y `VariantStockRepository.decrementStockIfAvailable`
 recibía `tx: unknown`. Ambos quedaron tipados con
@@ -310,6 +333,7 @@ recibía `tx: unknown`. Ambos quedaron tipados con
 148/148 tests pasando, typecheck limpio.
 
 ## Shipping (Envia.com) — Fase 2 COMPLETADA Y VERIFICADA
+
 Generación automática de guía de envío tras confirmación de pago (webhook
 Wompi → Order PAID → generateShippingLabel). Verificado end-to-end: PDF
 real de guía descargado y confirmado, con tracking number real
@@ -318,6 +342,7 @@ real de guía descargado y confirmado, con tracking number real
 Campos adicionales requeridos por /ship/generate/ que NO eran necesarios
 en /ship/rate/ (descubiertos por iteración empírica, documentando para no
 repetir el ciclo de prueba-error):
+
 - settings: { printFormat: 'PDF', printSize: 'STOCK_4X6', currency: 'COP' }
   — obligatorio en generate, no existe en rate.
 - number (número de la dirección, separado de street) — obligatorio en
@@ -335,20 +360,23 @@ revierte un pago ya confirmado) — solo se loguea con
 dashboard de Envia.com.
 
 ## Payments — Detalles técnicos de integración Wompi
+
 Ambientes: Sandbox (https://sandbox.wompi.co/v1) y Producción
 (https://production.wompi.co/v1), completamente separados, cada uno con
 su propio set de llaves y URL de eventos.
 
 4 llaves necesarias (prefijo _test_ en sandbox, _prod_ en producción):
+
 - pub_test_... : llave pública, va en el formulario de checkout (frontend-safe)
 - prv_test_... : llave privada, para llamadas autenticadas a la API de Wompi
 - test_integrity_... : secreto de integridad, firma el checkout (SOLO backend)
 - test_events_... : secreto de eventos, valida el checksum del webhook (SOLO backend)
 
 Flujo de checkout (Web Checkout, formulario HTML hospedado):
+
 1. Backend genera la firma de integridad: SHA256(reference + amount_in_cents
-   + currency + secreto_integridad) — reference es nuestro Order.idempotencyKey,
-   ya único por diseño.
+   - currency + secreto_integridad) — reference es nuestro Order.idempotencyKey,
+     ya único por diseño.
 2. Backend devuelve al frontend los parámetros necesarios (public-key, currency,
    amount-in-cents, reference, signature de integridad, redirect-url) para que
    el frontend arme el formulario que apunta a https://checkout.wompi.co/p/.
@@ -368,6 +396,7 @@ Flujo de checkout (Web Checkout, formulario HTML hospedado):
    si no recibe 200).
 
 ## Payments — Implementación (Wompi)
+
 - POST /api/orders/:orderId/checkout: valida ownership + status PENDING,
   calcula amount_in_cents, genera signature de integridad (SHA256), crea
   Payment (PENDING), devuelve datos para que el frontend arme el formulario
@@ -389,8 +418,10 @@ Flujo de checkout (Web Checkout, formulario HTML hospedado):
   el Dashboard de Wompi, sección Eventos.
 
   ## Payments (Wompi) — Verificación completa
+
 Los 3 escenarios críticos fueron probados manualmente en sandbox y confirmados
 funcionando correctamente:
+
 1. Pago APROBADO con stock disponible → Order: PAID, Payment: SUCCEEDED,
    stock descontado correctamente, carrito vaciado.
 2. Pago DECLINADO → Order: CANCELLED, Payment: FAILED, sin efectos
@@ -406,12 +437,14 @@ cliente quedaría cobrado por Wompi sin reembolso automático de nuestro
 lado. Antes de producción real, hay que implementar esto explícitamente.
 
 ## Reembolso automático (Wompi Void) — Implementado
+
 Payment.providerTransactionId (nuevo campo, nullable, unique) guarda el ID
 real de transacción de Wompi (transaction.id del webhook), distinto de
 providerReferenceId (que es nuestra reference/idempotencyKey).
 
 Cuando un pago es APPROVED pero el stock ya no está disponible (condición
 de carrera cubierta desde el diseño original de orders+payments):
+
 1. Se intenta anular la transacción vía POST /v1/transactions/{id}/void
    en la API de Wompi (requiere WOMPI_PRIVATE_KEY).
 2. Si el void tiene éxito: Payment.status → REFUNDED.
@@ -425,6 +458,7 @@ Variable de entorno nueva: WOMPI_API_BASE_URL (sandbox: https://sandbox.wompi.co
 producción: https://production.wompi.co/v1).
 
 ## Reembolso automático (Wompi Void) — Verificado end-to-end
+
 Probado en sandbox: pago APPROVED con stock insuficiente → void ejecutado
 automáticamente vía API de Wompi → Payment.status: REFUNDED,
 providerTransactionId guardado correctamente, Order.status: CANCELLED.
@@ -433,6 +467,7 @@ la transacción anulada). Sin necesidad de log de "reembolso manual" en
 este caso — el void tuvo éxito en el primer intento.
 
 ## Deuda técnica consciente (no bloqueante)
+
 - Order.shippingAddressId es referencia a Address, NO es snapshot (a
   diferencia de OrderItem). Si el usuario edita su dirección después de
   comprar, el historial de la orden reflejaría el cambio retroactivamente.
@@ -440,6 +475,7 @@ este caso — el void tuvo éxito en el primer intento.
   directamente en Order en el momento de la compra.
 
 ## Deuda técnica — Snapshot de dirección en Order — RESUELTO
+
 Order ahora guarda snapshot completo de la dirección de envío al momento
 de la compra (shippingFullName, shippingPhone, shippingLine1, shippingLine2,
 shippingCity, shippingState, shippingCountry, shippingPostalCode — todos
@@ -456,6 +492,7 @@ suite de testing (fase 1) está cumpliendo su propósito de proteger contra
 regresiones en cambios de lógica de negocio.
 
 ## Testing
+
 - Unit tests: mockear repositories, testear services en aislamiento.
 - Los repositories no se testean con mocks de Prisma — se testean contra la DB de
   test real (o se cubren indirectamente vía tests de integración).
@@ -463,6 +500,7 @@ regresiones en cambios de lógica de negocio.
   sensible del sistema).
 
 ## Testing automatizado — Fase 1 (unitarios)
+
 Vitest configurado. Tests unitarios de orders y payments implementados,
 mockeando repositories (sin DB real) — cubren los casos críticos de negocio
 ya validados manualmente: idempotencia, validación de stock, snapshot de
@@ -473,18 +511,22 @@ PENDIENTE: tests de integración contra DB de test real (fase 2, no
 implementada aún) para cart, products, categories, addresses, auth.
 
 ## Testing automatizado — Fase 1 (unitarios) — COMPLETADO
+
 18/18 tests pasando. Cobertura:
+
 - OrderServiceImpl (7 tests): carrito vacío, ownership de address, validación
   de stock, idempotencia, snapshot correcto, ownership en getMyOrderById.
 - PaymentServiceImpl (11 tests): ownership/status de checkout, reutilización
   de Payment existente, cálculo de signature, validación de checksum,
   idempotencia de webhook, los 3 escenarios de pago (aprobado, declinado,
   aprobado-sin-stock con void exitoso/fallido).
-Comando: npm test.
+  Comando: npm test.
 
 ## Testing automatizado — Fase 1 COMPLETADA (67/67 tests)
+
 Cobertura completa de lógica de negocio (services) en todos los módulos,
 mockeando repositories, sin dependencia de base de datos real:
+
 - orders (7) + payments (11)
 - auth (10)
 - products (7) + variants (9)
@@ -501,10 +543,12 @@ realizado. No es urgente: los services (la lógica de negocio más
 propensa a bugs sutiles) ya están protegidos.
 
 ## Testing automatizado — 92/92 tests pasando (conteo corregido)
+
 [Nota: el conteo anterior en este archivo estaba desactualizado — se
 detectó y corrigió el 01/08/2026]
 
 ## Panel de administración — COMPLETADO (Fases A, B, C)
+
 - Fase A: gestión de órdenes (listado/detalle sin ownership, progresión
   manual de estado PAID→PROCESSING→SHIPPED→DELIVERED).
 - Fase B: catálogo admin (productos/categorías incluyendo inactivos).
@@ -525,12 +569,14 @@ diseño que merece su propio análisis de seguridad antes de implementar,
 no se resolvió aquí a propósito.
 
 ## HTTP client compartido (timeout + retry) — COMPLETADO Y VERIFICADO
+
 Todas las llamadas salientes a proveedores externos (Wompi, Envia.com)
 usan `fetchWithRetry` de `src/shared/utils/httpClient.ts` en lugar de
 `fetch` crudo. Todo el tráfico externo pasa por este helper (verificado
 con grep: el único `await fetch(` restante está dentro del helper).
 
 Comportamiento:
+
 - Timeout por petición via AbortController (default 10s, configurable).
 - Reintenta únicamente errores transitorios: fallos de red/timeout y
   respuestas 5xx, con backoff exponencial (baseDelayMs * 2^attempt).
@@ -539,6 +585,7 @@ Comportamiento:
 - No introduce comentarios/emojis: solo lógica.
 
 Configuración usada por cada cliente:
+
 - Wompi `voidWompiTransaction`: timeout 10s, 2 reintentos (3 intentos).
 - Envia `getShippingRate`: timeout 8s, 1 reintento (2 intentos).
 - Envia `generateShippingLabel`: timeout 8s, 0 reintentos — corre dentro
@@ -550,12 +597,14 @@ reintentos ante 5xx/errores de red, no-reintento de 4xx, agotamiento de
 intentos con HttpRequestError, y mapeo de respuestas de ambos clientes.
 
 ## express.static(public/) removido — COMPLETADO
+
 `src/app.ts` ya no sirve `test-checkout.html` públicamente (antes con
 `app.use(express.static(join(__dirname, "../public")))`). Era una página
 de prueba manual para el checkout de Wompi que quedó expuesta como
 superficie de ataque; cumplió su propósito (TODO marcado en el código).
 
 Cambios:
+
 - Eliminada la línea de `express.static` + el comentario TODO en app.ts.
 - Eliminados imports/variables que quedaron sin uso (`fileURLToPath`,
   `dirname`, `join`, `__filename`, `__dirname`).
@@ -567,6 +616,7 @@ Cambios:
 141/141 tests pasando, typecheck limpio.
 
 ## Webhook no bloquea en generación de guía Envia — COMPLETADO
+
 La generación de la guía de envío ya NO se ejecuta inline dentro del
 webhook de Wompi (antes bloqueaba la respuesta 200 hasta que Envia
 respondiera, con riesgo de que Wompi reintentara 3 veces en 24h).
@@ -595,6 +645,7 @@ resuelve ANTES de que la guía termine (job asíncrono) y que tras drain la
 guía se generó y persistió. 147/147 tests pasando, typecheck limpio.
 
 ## Transacciones incompletas (webhook y rotación de refresh) — COMPLETADO
+
 Dos puntos donde la atomicidad quedaba partida entre dos operaciones y un
 proceso muerto a mitad de camino dejaba estados inconsistentes:
 
@@ -630,6 +681,7 @@ proceso muerto a mitad de camino dejaba estados inconsistentes:
 147/147 tests pasando, typecheck limpio.
 
 ## Estado de guía de envío persistente (shippingStatus) — COMPLETADO
+
 Antes, si la generación de la guía fallaba, solo quedaba un `console.error`
 ("GENERACIÓN DE GUÍA FALLIDA") — el estado no sobrevivía al proceso y no
 era visible para el admin. Ahora Order persiste su estado de guía:
@@ -651,6 +703,7 @@ era visible para el admin. Ahora Order persiste su estado de guía:
 147/147 tests pasando, typecheck limpio.
 
 ## Fix: TDZ en default de JobQueue (shadowing de parámetro) — COMPLETADO
+
 `PaymentServiceImpl` declaraba `private readonly jobQueue: JobQueue = jobQueue`:
 el parámetro se llama igual que el import, así que el default `= jobQueue` se
 resolvía al PROPIO parámetro (en TDZ mientras evalúa su default) y no al
@@ -665,6 +718,7 @@ service sin inyectar la cola y verifica que no lance. 149/149 tests pasando,
 typecheck limpio, server boot verificado (levanta en localhost:3000).
 
 ## Graceful shutdown (mejora #13) — COMPLETADO
+
 Nuevo `src/shared/utils/gracefulShutdown.ts`: `createGracefulShutdown(targets,
 options)` devuelve un handler de señal con orden estricto:
 
@@ -685,6 +739,7 @@ verificado. Nota: la señal SIGTERM no se probó de forma nativa en Windows
 (las señales son limitadas ahí) — la lógica queda cubierta por unit tests.
 
 ## Duplicación de Express.Request.user eliminada (mejora #14) — COMPLETADO
+
 `Express.Request.user` estaba declarada en DOS archivos, con tipos
 distintos, y TypeScript las fusionaba en `user?: AuthUser | AuthenticatedUser`:
 
@@ -700,6 +755,7 @@ Se eliminó la interfaz `AuthenticatedUser` y su `declare global` de
 limpio.
 
 ## Composition root (wiring centralizado, mejora #15) — COMPLETADO
+
 El wiring de dependencias vivía dentro de cada archivo de rutas, y el peor
 caso era `PaymentServiceImpl` + `PaymentController` instanciados DOS veces
 (en `order.routes.ts` para /checkout y en `payment.routes.ts` para /webhook),
@@ -717,10 +773,12 @@ las rutas quedan declarativas. 153/153 tests pasando, typecheck limpio,
 server boot verificado (localhost:3000).
 
 ## Paginación consistente (mejora #16) — COMPLETADO
+
 Todos los endpoints paginados usan el MISMO shape de respuesta:
 `data: { items, total, page, limit }`.
 
 Antes cada listado devolvía algo distinto:
+
 - GET /orders (usuario): `{ items, total, page, limit }` — el shape de
   referencia.
 - GET /products (público): `{ items, total, page }` — le faltaba `limit`.
@@ -736,6 +794,7 @@ respuesta ya no depende del endpoint que se consuma. 153/153 tests pasando,
 typecheck limpio.
 
 ## Logging estructurado + request logging (mejora #17) — COMPLETADO
+
 Todos los `console.log/error/warn` dispersos fueron reemplazados por **pino**
 (logs JSON estructurados) y se agregó **request logging con request-id**
 (pino-http), con correlación webhook→order.
@@ -751,9 +810,9 @@ Todos los `console.log/error/warn` dispersos fueron reemplazados por **pino**
   se ignora en el autoLogging. Cada respuesta HTTP lleva su `X-Request-Id` para
   correlación con los logs del servidor.
 - **Correlación webhook→order**: `PaymentService.processWebhookEvent(rawEvent,
-  reqId?)` recibe el `req.id` desde el controller del webhook, y TODOS los logs
+reqId?)` recibe el `req.id` desde el controller del webhook, y TODOS los logs
   del procesamiento llevan `{ reqId, transactionId, reference, paymentId,
-  orderId }` — se puede seguir un evento de Wompi desde el request del webhook
+orderId }` — se puede seguir un evento de Wompi desde el request del webhook
   hasta la orden afectada (APPROVED, stock insuficiente con void, guía fallida,
   rechazos, desconocido). `errorHandler` loguea con `reqId`.
 - Reemplazados: `server.ts` (boot), `env.ts` (errores de validación), `errorHandler`
@@ -767,6 +826,7 @@ Todos los `console.log/error/warn` dispersos fueron reemplazados por **pino**
   160/160 tests pasando, typecheck limpio.
 
 ## JWT hardening (mejora #18) — COMPLETADO
+
 - **issuer/audience**: `signToken` (auth.service.ts) firma los access tokens con
   `issuer` y `audience` (envs `JWT_ISSUER` default `hallyboutique-api`,
   `JWT_AUDIENCE` default `hallyboutique-web`, en env.ts). `authMiddleware`
@@ -774,7 +834,7 @@ Todos los `console.log/error/warn` dispersos fueron reemplazados por **pino**
   distintos, se rechaza con 401. Verificado end-to-end en vivo (register → /me
   con token firmado, token corrupto → 401).
 - **`as string` eliminado**: `authMiddleware` ya no castea `env.JWT_SECRET as
-  string` (el schema de env.ts ya garantiza `string` en runtime y tipo).
+string` (el schema de env.ts ya garantiza `string` en runtime y tipo).
 - **`jti` (claim nuevo)**: cada access token lleva `jti: randomUUID()` — deja el
   gancho para una blocklist futura (p.ej. Redis) sin costo hoy.
 - **Invalidación de access token al rotar — DECISIÓN DOCUMENTADA (no
@@ -794,6 +854,7 @@ Todos los `console.log/error/warn` dispersos fueron reemplazados por **pino**
   166/166 tests pasando, typecheck limpio.
 
 ## Documentación OpenAPI/Swagger (mejora #19) — COMPLETADO
+
 - `src/docs/openapi.ts`: documento OpenAPI 3.0.3 completo tipado con
   `oas30.OpenAPIObject` de `openapi3-ts` (v4 exporta namespaces `oas30`/`oas31`/
   `oas32`, NO un `OpenAPIObject` en la raíz). Cubre todos los endpoints (auth,
@@ -807,12 +868,13 @@ Todos los `console.log/error/warn` dispersos fueron reemplazados por **pino**
   - `GET /api/docs.json` — el documento crudo.
 - Notas de compatibilidad OpenAPI 3.0: `exclusiveMinimum` es booleano (la forma
   numérica es de 3.1), así que `basePrice` usa `exclusiveMinimum: true +
-  minimum: 0`.
+minimum: 0`.
 - Verificado en vivo: boot OK, `/api/docs` y `/api/docs.json` responden 200 con
   el documento válido (todos los paths operativos, sin claves duplicadas).
   166/166 tests pasando, typecheck limpio.
 
 ## .env.example versionable (mejora #20) — COMPLETADO
+
 - Nuevo `.env.example` con TODAS las variables reales de `src/config/env.ts`
   (verificado programáticamente: cobertura 1:1, sin faltantes ni extras).
 - Comentarios en español con instrucciones para obtener cada secreto (JWT con
@@ -826,6 +888,7 @@ Todos los `console.log/error/warn` dispersos fueron reemplazados por **pino**
   versionable. Proceso: copiar a `.env` y llenar.
 
 ## SKU auto-generado en variantes — COMPLETADO
+
 `sku` ahora es OPCIONAL en `createVariantSchema`. Si no se envía, se genera
 automáticamente desde el nombre del producto + color + talla:
 
@@ -848,6 +911,7 @@ colisión, SKU manual intacto) + 7 tests en `tests/unit/shared/sku.test.ts`.
 182/182 tests pasando, typecheck limpio.
 
 ## PATCH /api/orders/:orderId/address (cambiar dirección) — COMPLETADO
+
 Habilita la navegación hacia atrás en el checkout del frontend: la Order se
 crea en el paso 1 (dirección) y el usuario puede volver y cambiar la
 dirección ANTES de pagar. Antes era imposible — el snapshot shipping* quedaba
@@ -856,7 +920,7 @@ re-escribía la dirección).
 
 - Contrato: `PATCH /api/orders/:orderId/address` con body `{ addressId: uuid }`
   (schema `updateOrderAddressSchema`). Auth requerido (mismo `router.use(
-  authMiddleware)` de orders).
+authMiddleware)` de orders).
 - Reglas de negocio en `OrderServiceImpl.updateOrderAddress`:
   - Owner check de la ORDER (NotFound si no existe o es de otro usuario).
   - `status !== "PENDING"` → 409 (mismo criterio que shipping-quote/
@@ -884,6 +948,7 @@ re-escribía la dirección).
   usuario → 404 con mensaje real del backend.
 
 ## PATCH /products/:id ahora acepta isActive (activar/desactivar producto) — COMPLETADO Y VERIFICADO
+
 Habilita el toggle Activo/Inactivo del panel admin (Switch por fila en la
 tabla de productos). Antes el PATCH no aceptaba isActive: `updateProductSchema`
 no lo incluía, `updateProduct` construía updateData solo con campos conocidos,
@@ -897,7 +962,7 @@ no podía ocultar/desocultar un producto sin borrarlo.
   filtro (el admin ahora muestra todo el catálogo para poder reactivar).
 - `UpdateProductInput` gana `isActive?: boolean`; `updateProduct` lo propaga a
   updateData y amplía el cast de `Partial<...>` (también `Record<string,
-  string | number | boolean>`). El PATCH sigue siendo parcial — isActive se
+string | number | boolean>`). El PATCH sigue siendo parcial — isActive se
   envía solo cuando llega.
 - openapi.ts: `UpdateProductRequest` documenta `isActive` (descripción de
   visibilidad en tienda) y `ProductListItem` lo incluye en propiedades +
@@ -910,6 +975,7 @@ no podía ocultar/desocultar un producto sin borrarlo.
   y restaura. Sin cambios de esquema Prisma (isActive ya existía).
 
 ## Search en GET /api/auth/admin/all (usuarios admin) — COMPLETADO Y VERIFICADO
+
 El listado admin de usuarios solo filtraba por role (CUSTOMER/ADMIN). Ahora
 acepta `search` (case-insensitive) para buscar por nombre, apellido o correo,
 manteniendo el endpoint SOLO LECTURA (no hay PATCH/DELETE de usuarios por
@@ -918,8 +984,8 @@ diseño).
 - `adminUsersQuerySchema` (auth.schema.ts): gana `search: z.string().trim().min(1).optional()`.
 - `AuthFilters` (auth.repository.ts): gana `search?: string`; `findAllAdmin` arma
   `where` con `role` (top-level) Y `OR` de email/firstName/lastName con `contains
-  + mode: "insensitive"` (mismo patrón que orders/products admin). Se combina con
-  role (Prisma AND de top-level keys).
+  - mode: "insensitive"` (mismo patrón que orders/products admin). Se combina con
+    role (Prisma AND de top-level keys).
 - `AuthRepository` importa `Prisma` para tipar `Prisma.UserWhereInput`.
 - Controller: `listUsersAdmin` arma `filters` con role y search solo cuando llegan.
 - openapi.ts: param `search` documentado en GET /auth/admin/all (descripción del
@@ -988,6 +1054,7 @@ en el futuro, evaluar purgar el historial como tarea aparte por
 higiene, no por riesgo real de esos tokens puntuales.
 
 Cambios:
+
 - src/shared/utils/logger.ts: agregada opción `redact` a la instancia
   de pino — cubre req.headers.authorization, req.headers.cookie,
   res.headers["set-cookie"], y wildcards (*.password, *.token,
@@ -1033,10 +1100,12 @@ Incluye el badge de CI (mejora #22) apuntando al workflow real.
       carrito vaciado. Hito principal del proyecto alcanzado.
 
 ## Regla operativa importante
+
 Nunca borrar filas directamente desde pgAdmin/Prisma Studio en tablas de
 negocio (products, orders, etc.) — rompe soft delete y trazabilidad. Esas
 herramientas son solo para consultar y para poblar datos semilla iniciales
 (ej. categorías). Todo cambio de estado real debe pasar por la API.
 
 ## Convención de commits
+
 Conventional Commits (`feat:`, `fix:`, `refactor:`, `test:`, `docs:`).

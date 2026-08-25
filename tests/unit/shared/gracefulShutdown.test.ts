@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { createGracefulShutdown, type ShutdownTargets } from "../../../src/shared/utils/gracefulShutdown.js";
+import {
+  createGracefulShutdown,
+  type ShutdownTargets,
+} from "../../../src/shared/utils/gracefulShutdown.js";
 
 function makeTargets(): ShutdownTargets {
   return {
@@ -71,7 +74,10 @@ describe("createGracefulShutdown", () => {
 
     expect(exit).toHaveBeenCalledWith(1);
     expect(targets.disconnectDb).not.toHaveBeenCalled();
-    expect(logger.error).toHaveBeenCalledWith("[Shutdown] Error durante el apagado:", expect.any(Error));
+    expect(logger.error).toHaveBeenCalledWith(
+      "[Shutdown] Error durante el apagado:",
+      expect.any(Error),
+    );
   });
 
   it("fuerza la salida si se supera el timeout de apagado", async () => {

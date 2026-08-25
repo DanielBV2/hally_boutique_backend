@@ -10,9 +10,7 @@ interface PrismaErrorMapping {
   message: string;
 }
 
-function mapPrismaError(
-  err: Prisma.PrismaClientKnownRequestError,
-): PrismaErrorMapping | null {
+function mapPrismaError(err: Prisma.PrismaClientKnownRequestError): PrismaErrorMapping | null {
   switch (err.code) {
     case "P2002": {
       const target = err.meta?.target;
@@ -46,12 +44,7 @@ function mapPrismaError(
   }
 }
 
-export function errorHandler(
-  err: Error,
-  _req: Request,
-  res: Response,
-  _next: NextFunction,
-): void {
+export function errorHandler(err: Error, _req: Request, res: Response, _next: NextFunction): void {
   if (err instanceof AppError) {
     const body: ApiResponse<never> = {
       success: false,

@@ -7,11 +7,6 @@ const { metricsController } = container;
 
 const router = Router();
 
-router.get(
-  "/dashboard",
-  authMiddleware,
-  roleMiddleware("ADMIN"),
-  metricsController.getDashboard,
-);
+router.get("/dashboard", authMiddleware, roleMiddleware("ADMIN"), metricsController.getDashboard);
 
 export { router as metricsRoutes };

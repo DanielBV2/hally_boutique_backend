@@ -106,9 +106,7 @@ export class AddressServiceImpl implements AddressService {
       await this.repository.delete(addressId);
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
-        throw new ConflictError(
-          "No se puede eliminar una dirección con órdenes asociadas",
-        );
+        throw new ConflictError("No se puede eliminar una dirección con órdenes asociadas");
       }
       throw error;
     }
