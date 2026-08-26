@@ -1,4 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
+import * as Sentry from "@sentry/node";
 import { logger } from "./logger.js";
 
 export type JobHandler = (payload: unknown) => Promise<void>;
@@ -104,6 +105,9 @@ export class JobWorker {
           { jobId: job.id, type: job.type, err },
           "[JobWorker] Job agotó reintentos — requiere intervención manual",
         );
+        Sentry.captureException(err instanceof Error ? err : new Error(String(err)), {
+          tags: { jobType: job.type, jobId: job.id },
+        });
       } else {
         logger.warn(
           { jobId: job.id, type: job.type, attempt: attempts, err },

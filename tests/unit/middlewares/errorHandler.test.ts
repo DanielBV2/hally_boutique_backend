@@ -1,8 +1,14 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Prisma } from "@prisma/client";
 import { errorHandler } from "../../../src/middlewares/errorHandler.js";
 import { NotFoundError } from "../../../src/shared/errors/app-error.js";
 import { logger } from "../../../src/shared/utils/logger.js";
+
+vi.mock("@sentry/node", () => ({
+  captureException: vi.fn(),
+}));
+
+import * as Sentry from "@sentry/node";
 
 function makeRes() {
   const json = vi.fn();
@@ -122,5 +128,52 @@ describe("errorHandler", () => {
     expect(spy).toHaveBeenCalledWith(expect.objectContaining({ err: boom }), "Unhandled error");
 
     spy.mockRestore();
+  });
+
+  describe("Sentry integration", () => {
+    beforeEach(() => {
+      vi.mocked(Sentry.captureException).mockClear();
+    });
+
+    it("captureException se llama en error 500 no esperado", () => {
+      vi.spyOn(logger, "error").mockImplementation(() => {});
+      const boom = new Error("unexpected");
+
+      invoke(boom);
+
+      expect(Sentry.captureException).toHaveBeenCalledOnce();
+      expect(Sentry.captureException).toHaveBeenCalledWith(boom);
+    });
+
+    it("captureException NO se llama para AppError (4xx esperado)", () => {
+      invoke(new NotFoundError("Product"));
+
+      expect(Sentry.captureException).not.toHaveBeenCalled();
+    });
+
+    it("captureException NO se llama para Prisma P2025 mapeado", () => {
+      const err = new Prisma.PrismaClientKnownRequestError("Record not found", {
+        code: "P2025",
+        clientVersion: "test",
+        meta: { modelName: "Order" },
+      });
+
+      invoke(err);
+
+      expect(Sentry.captureException).not.toHaveBeenCalled();
+    });
+
+    it("captureException se llama para Prisma código no mapeado (P1000)", () => {
+      vi.spyOn(logger, "error").mockImplementation(() => {});
+      const err = new Prisma.PrismaClientKnownRequestError("Connection error", {
+        code: "P1000",
+        clientVersion: "test",
+      });
+
+      invoke(err);
+
+      expect(Sentry.captureException).toHaveBeenCalledOnce();
+      expect(Sentry.captureException).toHaveBeenCalledWith(err);
+    });
   });
 });
