@@ -1080,9 +1080,86 @@ Contenido: stack, arquitectura (con link a CLAUDE.md para el detalle),
 requisitos, pasos de setup local, tabla de scripts de package.json,
 resumen de los grupos de variables de entorno (con link a .env.example
 para el detalle completo), cómo correr tests, y nota sobre el flujo de
-PR obligatorio por el branch protection activo desde la mejora #22.
+PR obligatorio por el branch protection activo.
 
-Incluye el badge de CI (mejora #22) apuntando al workflow real.
+## ESLint + Prettier — COMPLETADO
+
+Agregado ESLint (flat config, typescript-eslint con reglas type-aware)
++ Prettier. El tsconfig.json ya es muy estricto, así que las reglas de
+ESLint se enfocaron en lo que tsc no cubre:
+
+- `no-floating-promises` / `no-misused-promises`: crítico en un
+  proyecto con webhooks de pago y jobs async — una promesa sin
+  await/catch puede perder un evento de pago silenciosamente.
+- `consistent-type-imports`: alineado con `verbatimModuleSyntax` del
+  tsconfig, fuerza a marcar explícitamente imports de solo-tipo.
+- `no-console`: el proyecto usa pino como logger en todo el código,
+  console.log no debería colarse.
+
+tsconfig.eslint.json separado del tsconfig.json de build: el de build
+solo incluye src/ (correcto, no debe cambiar), el de lint también
+cubre tests/ para que el linting type-aware alcance los tests.
+
+[Si en el paso 8 OpenCode encontró errores reales de floating-promises,
+documenta aquí cuáles eran y cómo se resolvieron — dejar este bracket
+como recordatorio para completarlo con el resultado real antes de
+pegar en CLAUDE.md].
+
+Integrado a CI (mejora #22): lint y format:check corren en cada
+push/PR, después del build y antes de los tests.
+
+El primer formateo de Prettier sobre el código existente se hizo en un
+commit separado del de configuración, para no mezclar cambios de
+estilo puro con la config real en el historial/blame.
+
+## Índice GIN (pg_trgm) para búsqueda de productos — COMPLETADO
+
+La búsqueda de productos (`contains` + `mode: insensitive`, traducido
+por Prisma a `ILIKE '%término%'`) hacía scan secuencial completo de la
+tabla `products` en cada búsqueda — funciona bien con el catálogo
+actual (chico), pero no escala.
+
+Agregado índice GIN con extensión `pg_trgm` sobre `Product.name`
+(único campo por el que se busca hoy — `description` no se usa como
+filtro, no se indexó). No fue necesario cambiar ninguna query en
+product.repository.ts: el patrón `ILIKE '%...%'` que ya generaba
+Prisma es exactamente el que este tipo de índice acelera.
+
+Enfoque usado: Opción B (SQL manual). `postgresqlExtensions` preview
+feature fue deprecado en Prisma 6.16 y eliminado en 7.x. El índice
+SÍ está declarado en `schema.prisma` con `@@index([name(ops: raw(
+"gin_trgm_ops"))], type: Gin)` para evitar que Prisma detecte drift,
+pero la extensión `pg_trgm` se crea en la migración SQL, no en el
+schema.
+
+Migraciones separadas en dos archivos (por P3018 si CONCURRENTLY va
+en la misma transacción que CREATE EXTENSION):
+
+1. `20260826011700_add_pg_trgm_extension` — solo `CREATE EXTENSION
+   IF NOT EXISTS pg_trgm;`
+2. `20260826011800_create_product_name_trgm_index` — solo `CREATE
+   INDEX CONCURRENTLY IF NOT EXISTS "idx_products_name_trgm" ON
+   "products" USING GIN ("name" gin_trgm_ops);`
+
+Cada archivo tiene UN solo statement, así Prisma no envuelve en
+transacción y CONCURRENTLY funciona. Verificado con `migrate deploy`
+en DB limpia (simula producción) — sin errores P3018.
+
+**Plan de recuperación si `CREATE INDEX CONCURRENTLY` falla en deploy:**
+
+1. Revisar si el índice quedó a medias:
+   `SELECT indexrelid::regclass, indisvalid FROM pg_index WHERE indisvalid = false;`
+   (un índice con `indisvalid = false` hay que borrarlo con
+   `DROP INDEX CONCURRENTLY "idx_products_name_trgm"` antes de
+   reintentar)
+2. Marcar la migración como resuelta manualmente:
+   `npx prisma migrate resolve --applied 20260826011800_create_product_name_trgm_index`
+3. Volver a correr `npx prisma migrate deploy`
+
+Nota: con el catálogo actual (pequeño), Postgres puede seguir eligiendo
+Seq Scan en vez del índice — comportamiento esperado del query
+planner con tablas chicas, no indica que el índice esté mal. El
+beneficio se hace evidente cuando el catálogo crezca.
 
 ## Estado actual del proyecto (actualizado)
 
