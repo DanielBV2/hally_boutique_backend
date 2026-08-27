@@ -4,7 +4,7 @@
   "description": "Backend de e-commerce para Hally Boutique",
   "main": "dist/server.js",
   "scripts": {
-    "dev": "node --import ./src/instrument.ts node_modules/.bin/tsx watch src/server.ts",
+    "dev": "cross-env NODE_OPTIONS=\"--import tsx --import ./src/instrument.ts\" tsx watch src/server.ts",
     "build": "tsc",
     "start": "node --import ./dist/instrument.js dist/server.js",
     "test": "vitest run",
@@ -33,6 +33,7 @@
     "@types/supertest": "^7.2.1",
     "@types/swagger-ui-express": "^4.1.8",
     "@typescript/native": "npm:typescript@^7.0.2",
+    "cross-env": "^10.1.0",
     "dotenv": "^17.4.2",
     "eslint": "^10.9.1",
     "eslint-config-prettier": "^10.1.8",
