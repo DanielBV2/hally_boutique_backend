@@ -43,6 +43,7 @@ const envSchema = z.object({
   SHIPPING_CARRIERS: z.string().default("coordinadora,serviEntrega,interRapidisimo,tcc"),
   JOB_POLL_INTERVAL_MS: z.coerce.number().positive().default(10000),
   JOB_BATCH_SIZE: z.coerce.number().positive().default(5),
+  SENTRY_DSN: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

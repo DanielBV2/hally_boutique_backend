@@ -4,9 +4,9 @@
   "description": "Backend de e-commerce para Hally Boutique",
   "main": "dist/server.js",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
+    "dev": "cross-env NODE_OPTIONS=\"--import tsx --import ./src/instrument.ts\" tsx watch src/server.ts",
     "build": "tsc",
-    "start": "node dist/server.js",
+    "start": "node --import ./dist/instrument.js dist/server.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "postinstall": "prisma generate",
@@ -33,6 +33,7 @@
     "@types/supertest": "^7.2.1",
     "@types/swagger-ui-express": "^4.1.8",
     "@typescript/native": "npm:typescript@^7.0.2",
+    "cross-env": "^10.1.0",
     "dotenv": "^17.4.2",
     "eslint": "^10.9.1",
     "eslint-config-prettier": "^10.1.8",
@@ -49,6 +50,7 @@
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
+    "@sentry/node": "^10.71.0",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",

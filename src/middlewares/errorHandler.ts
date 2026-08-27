@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { Prisma } from "@prisma/client";
+import * as Sentry from "@sentry/node";
 import { AppError } from "../shared/errors/app-error.js";
 import type { ApiResponse } from "../shared/types/api-response.js";
 import { logger } from "../shared/utils/logger.js";
@@ -67,6 +68,7 @@ export function errorHandler(err: Error, _req: Request, res: Response, _next: Ne
   }
 
   logger.error({ err, reqId: _req.id }, "Unhandled error");
+  Sentry.captureException(err);
 
   const body: ApiResponse<never> = {
     success: false,

@@ -16,6 +16,7 @@ import { addressRoutes } from "./modules/addresses/address.routes.js";
 import { orderRoutes } from "./modules/orders/order.routes.js";
 import { paymentRoutes } from "./modules/payments/payment.routes.js";
 import { metricsRoutes } from "./modules/metrics/metrics.routes.js";
+import * as Sentry from "@sentry/node";
 
 const app = express();
 
@@ -60,6 +61,8 @@ app.use("/api/addresses", addressRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/metrics", metricsRoutes);
+
+Sentry.setupExpressErrorHandler(app);
 
 app.use(errorHandler);
 
