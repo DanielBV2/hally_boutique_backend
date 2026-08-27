@@ -1114,6 +1114,19 @@ estilo puro con la config real en el historial/blame.
 
 ## Índice GIN (pg_trgm) para búsqueda de productos — COMPLETADO
 
+Nota de corrección: la migración original tenía CREATE EXTENSION y
+CREATE INDEX CONCURRENTLY en el mismo archivo — comportamiento
+documentado como poco confiable en Prisma (puede envolver la migración
+en una transacción de todos modos y fallar con P3018). Se separó en
+dos migraciones, cada una con un único statement, que es el patrón que
+de forma más consistente evita ese problema. Verificado también con
+`prisma migrate deploy` (no solo `migrate dev`) contra una DB limpia.
+
+Plan de recuperación si un CREATE INDEX CONCURRENTLY falla en un
+deploy real: revisar `pg_index.indisvalid = false` (índice a medias),
+DROP INDEX CONCURRENTLY si aplica, `prisma migrate resolve --applied
+<nombre>`, reintentar `migrate deploy`.
+
 La búsqueda de productos (`contains` + `mode: insensitive`, traducido
 por Prisma a `ILIKE '%término%'`) hacía scan secuencial completo de la
 tabla `products` en cada búsqueda — funciona bien con el catálogo
