@@ -1085,15 +1085,16 @@ PR obligatorio por el branch protection activo.
 ## ESLint + Prettier — COMPLETADO
 
 Agregado ESLint (flat config, typescript-eslint con reglas type-aware)
-+ Prettier. El tsconfig.json ya es muy estricto, así que las reglas de
-ESLint se enfocaron en lo que tsc no cubre:
 
-- `no-floating-promises` / `no-misused-promises`: crítico en un
+- Prettier. El tsconfig.json ya es muy estricto, así que las reglas de
+  ESLint se enfocaron en lo que tsc no cubre:
+
+* `no-floating-promises` / `no-misused-promises`: crítico en un
   proyecto con webhooks de pago y jobs async — una promesa sin
   await/catch puede perder un evento de pago silenciosamente.
-- `consistent-type-imports`: alineado con `verbatimModuleSyntax` del
+* `consistent-type-imports`: alineado con `verbatimModuleSyntax` del
   tsconfig, fuerza a marcar explícitamente imports de solo-tipo.
-- `no-console`: el proyecto usa pino como logger en todo el código,
+* `no-console`: el proyecto usa pino como logger en todo el código,
   console.log no debería colarse.
 
 tsconfig.eslint.json separado del tsconfig.json de build: el de build
@@ -1149,10 +1150,10 @@ Migraciones separadas en dos archivos (por P3018 si CONCURRENTLY va
 en la misma transacción que CREATE EXTENSION):
 
 1. `20260826011700_add_pg_trgm_extension` — solo `CREATE EXTENSION
-   IF NOT EXISTS pg_trgm;`
+IF NOT EXISTS pg_trgm;`
 2. `20260826011800_create_product_name_trgm_index` — solo `CREATE
-   INDEX CONCURRENTLY IF NOT EXISTS "idx_products_name_trgm" ON
-   "products" USING GIN ("name" gin_trgm_ops);`
+INDEX CONCURRENTLY IF NOT EXISTS "idx_products_name_trgm" ON
+"products" USING GIN ("name" gin_trgm_ops);`
 
 Cada archivo tiene UN solo statement, así Prisma no envuelve en
 transacción y CONCURRENTLY funciona. Verificado con `migrate deploy`
