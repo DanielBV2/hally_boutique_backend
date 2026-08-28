@@ -9,6 +9,20 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: hallyboutique_test
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     env:
       NODE_ENV: test
       # Todos los valores de abajo son ficticios/sandbox — NO son
@@ -16,7 +30,9 @@ jobs:
       # y no en GitHub Secrets. Si algún día se necesitan credenciales
       # reales en CI (ej. para tests de integración contra Wompi
       # sandbox real), esos sí deben moverse a Secrets.
-      DATABASE_URL: "postgresql://ci:ci@localhost:5432/hallyboutique_ci"
+      # DATABASE_URL apunta al servicio de Postgres definido abajo
+      # (puerto 5433, user/pass/db 'test').
+      DATABASE_URL: "postgresql://test:test@localhost:5433/hallyboutique_test"
       JWT_SECRET: "ci-test-secret-not-real"
       JWT_EXPIRES_IN: "15m"
       JWT_ISSUER: "hallyboutique-api"
@@ -68,3 +84,6 @@ jobs:
 
       - name: Tests
         run: npm test
+
+      - name: Tests de integración
+        run: npx prisma migrate deploy && npx vitest run --config vitest.integration.config.ts
