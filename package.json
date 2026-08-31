@@ -20,7 +20,9 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "docker:build": "docker build -t hallyboutique-backend .",
+    "docker:run": "docker run -p 3000:3000 --env-file .env hallyboutique-backend"
   },
   "keywords": [],
   "author": "",

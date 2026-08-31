@@ -90,6 +90,32 @@ cada push/PR a `main`.
 npm test
 ```
 
+## Docker
+
+```bash
+npm run docker:build
+npm run docker:run
+```
+
+La imagen NO corre migraciones automáticamente al arrancar — antes de
+desplegar una imagen nueva, corre las migraciones como paso separado
+contra la base de datos de destino:
+
+```bash
+npm run prisma:migrate:deploy
+```
+
+**Importante sobre `--env-file`**: a diferencia de `dotenv` (usado en
+desarrollo local vía `npm run dev`), `docker run --env-file` NO quita
+comillas ni comentarios en línea de los valores — los toma tal cual,
+literalmente. Si tu `.env` tiene valores entre comillas
+(`DATABASE_URL="postgresql://..."`) o comentarios después del valor
+(`TAX_RATE=0.19 # nota`), Docker va a pasarlos con las comillas/el
+comentario incluidos como parte del valor, y la validación de Zod en
+`src/config/env.ts` va a fallar con errores confusos tipo "Invalid
+URL" o "expected number, received NaN". Para `docker run`, mantén esos
+valores SIN comillas y SIN comentarios en la misma línea.
+
 ## CI/CD
 
 `main` está protegido: los cambios se hacen vía Pull Request y
