@@ -90,6 +90,21 @@ cada push/PR a `main`.
 npm test
 ```
 
+## Docker
+
+```bash
+npm run docker:build
+npm run docker:run
+```
+
+La imagen NO corre migraciones automáticamente al arrancar — antes de
+desplegar una imagen nueva, corre las migraciones como paso separado
+contra la base de datos de destino:
+
+```bash
+npm run prisma:migrate:deploy
+```
+
 ## CI/CD
 
 `main` está protegido: los cambios se hacen vía Pull Request y
