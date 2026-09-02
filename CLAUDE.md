@@ -1291,6 +1291,46 @@ tener que copiar selectivamente solo el cliente de Prisma generado.
 Optimizar esto queda como mejora futura si el tamaño de imagen se
 vuelve un problema real.
 
+## Fix: emailClient no debe crashear el arranque sin RESEND_API_KEY — mejora - COMPLETADO
+
+emailClient.ts instanciaba el cliente de Resend en el top-level del
+módulo — el SDK lanza excepción síncrona sin API key, lo que tumbaba
+el arranque COMPLETO de la app (no solo la función de email) a pesar
+de que RESEND_API_KEY está documentado como opcional. Se detectó
+verificando el Dockerfile manualmente (mejora #30) — nunca falló en CI
+porque .github/workflows/ci.yml sí tenía un RESEND_API_KEY dummy, pero
+.env.test (creado después, mejora #29) no lo había heredado, quedando
+desalineado de CI sin que nadie lo notara.
+
+Corregido: cliente de Resend ahora se instancia de forma perezosa
+(lazy), y sendPasswordResetEmail devuelve { success: false } con log
+de advertencia si no hay API key configurada, en vez de crashear el
+proceso — mismo contrato que ya manejaba auth.service.ts para
+cualquier otro fallo de envío. De paso, migrado de process.env directo
+a env validado con Zod.
+
+.env.test actualizado para incluir RESEND_API_KEY (alineado con CI) y
+así evitar que este tipo de desalineación entre entornos de test
+vuelva a pasar desapercibida.
+
+## Limpieza de Wompi: enum default + env validado — COMPLETADO
+
+Dos limpiezas menores pendientes desde el análisis inicial:
+
+1. `PaymentProvider @default(STRIPE)` en el schema — nunca se usaba en
+   la práctica (payment.repository.ts siempre setea "WOMPI"
+   explícitamente al crear el Payment), pero el default incorrecto
+   podía confundir a quien leyera el schema sin contexto. Cambiado a
+   `@default(WOMPI)`, que es el proveedor realmente activo (Stripe no
+   está disponible en Colombia).
+
+2. wompiClient.ts leía `process.env.WOMPI_API_BASE_URL` directo con un
+   fallback manual (`||`), saltándose la validación centralizada con
+   Zod de src/config/env.ts — quedó como TODO explícito desde la
+   corrección de la mejora #26. Migrado a `env.WOMPI_API_BASE_URL`,
+   que ya tiene el mismo default validado — se eliminó el fallback
+   manual duplicado.
+
 ## Estado actual del proyecto (actualizado)
 
 - [x] Schema de Prisma completo y migrado
