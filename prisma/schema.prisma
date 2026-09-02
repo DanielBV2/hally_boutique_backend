@@ -58,10 +58,12 @@ enum JobStatus {
   FAILED
 }
 
-// Preparado para múltiples proveedores (Stripe hoy, Wompi/PayU después)
+// Wompi es el proveedor activo hoy (Stripe no está disponible en
+// Colombia). STRIPE y PAYU quedan en el enum preparados para el
+// futuro, no en uso actualmente.
 enum PaymentProvider {
-  STRIPE
   WOMPI
+  STRIPE
   PAYU
 }
 
@@ -344,7 +346,7 @@ model Payment {
   order                 Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
   orderId               String          @unique
 
-  provider              PaymentProvider @default(STRIPE)
+  provider              PaymentProvider @default(WOMPI)
   status                PaymentStatus   @default(PENDING)
 
   // Referencia externa del proveedor (Stripe PaymentIntent ID, etc.)

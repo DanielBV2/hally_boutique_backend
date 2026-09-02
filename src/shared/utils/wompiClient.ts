@@ -1,8 +1,5 @@
 import { fetchWithRetry } from "./httpClient.js";
-
-// TODO: migrar a env.WOMPI_API_BASE_URL (src/config/env.ts) — pendiente, no tocar en esta mejora
-// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
-const WOMPI_API_BASE_URL = process.env.WOMPI_API_BASE_URL || "https://sandbox.wompi.co/v1";
+import { env } from "../../config/env.js";
 
 export async function voidWompiTransaction(
   transactionId: string,
@@ -10,7 +7,7 @@ export async function voidWompiTransaction(
 ): Promise<{ success: boolean; data?: unknown; error?: string }> {
   try {
     const response = await fetchWithRetry(
-      `${WOMPI_API_BASE_URL}/transactions/${transactionId}/void`,
+      `${env.WOMPI_API_BASE_URL}/transactions/${transactionId}/void`,
       {
         method: "POST",
         headers: {
