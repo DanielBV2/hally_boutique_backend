@@ -1034,6 +1034,19 @@ FOR UPDATE SKIP LOCKED y no tiene test automatizado — requiere una
 DB de test real (igual que los repositories), no mocks de Prisma.
 Pendiente agregar ese test de integración.
 
+## CI con GitHub Actions — COMPLETADO
+
+Agregado .github/workflows/ci.yml: corre build (tsc) + lint + format
+check + suite completa de tests unitarios en cada push/PR a main.
+Antes de esto, nada garantizaba que un PR no rompiera algo antes de
+hacer merge. main está protegido: requiere el check de CI verde antes
+de poder mergear.
+
+Env vars del job son valores ficticios/sandbox hardcodeados en el YAML
+(no GitHub Secrets) — ninguno es una credencial real. Ampliado después
+(mejora #29) con un servicio de Postgres para los tests de
+integración.
+
 ## Logger: redacción de headers sensibles + log commiteado removido — COMPLETADO
 
 Se encontró backend-dev.log commiteado al repo (36 KB de logs de
@@ -1082,6 +1095,19 @@ resumen de los grupos de variables de entorno (con link a .env.example
 para el detalle completo), cómo correr tests, y nota sobre el flujo de
 PR obligatorio por el branch protection activo.
 
+## Health check verifica conexión a la base de datos — COMPLETADO
+
+/health respondía {status: "ok"} sin verificar nada, así que un
+orquestador (K8s, Railway, Render) podía ver la app como saludable
+mientras Postgres estaba caído. Ahora hace un ping real (SELECT 1) con
+timeout de 3s. 200 con {status: "ok", checks: {database: "ok"}} si el
+ping pasa, 503 con {status: "error", checks: {database: "unreachable"}}
+si falla o hace timeout — 503 es el código que los orquestadores
+esperan para marcar una instancia como no lista.
+
+Se corrigió de paso un mismatch en la doc OpenAPI: documentaba
+"/api/health" cuando la ruta real es "/health".
+
 ## ESLint + Prettier — COMPLETADO
 
 Agregado ESLint (flat config, typescript-eslint con reglas type-aware)
@@ -1112,6 +1138,34 @@ push/PR, después del build y antes de los tests.
 El primer formateo de Prettier sobre el código existente se hizo en un
 commit separado del de configuración, para no mezclar cambios de
 estilo puro con la config real en el historial/blame.
+
+## Error tracking con Sentry — COMPLETADO
+
+Un error 500 no esperado solo quedaba en logs de pino — sin alertas,
+había que estar mirando logs para enterarse. Integrado @sentry/node
+vía src/instrument.ts, cargado con --import antes que el resto de la
+app (requisito de la auto-instrumentación ESM).
+
+Dos problemas encontrados y corregidos durante la implementación:
+1. El script "dev" combinaba --import con el binario de tsx de forma
+   incorrecta (node intentaba ejecutar el script de shell de tsx como
+   módulo JS) — se resolvió usando NODE_OPTIONS vía cross-env
+   (necesario para que funcione igual en Windows/Mac/Linux).
+2. instrument.ts leía process.env.SENTRY_DSN directo, pero al ser el
+   primer módulo cargado (--import), corría ANTES que dotenv.config()
+   (que vive dentro de src/config/env.ts). Se resolvió importando el
+   `env` ya validado de Zod en vez de process.env directo — fuerza a
+   que el .env se cargue primero.
+
+SENTRY_DSN es opcional (como RESEND_API_KEY) — sin ella, Sentry queda
+deshabilitado sin romper dev/CI. Captura solo errores 500 no esperados
+(no errores de negocio esperados como AppError) y jobs que agotan
+reintentos (JobWorker). Sin recolección de PII por defecto — decisión
+consciente por la lección de la mejora #23 (logger filtrando JWTs).
+
+Verificado de punta a punta: ruta temporal /debug-sentry confirmó el
+error apareciendo en el dashboard real de sentry.io antes de darlo por
+cerrado (y antes de borrar esa ruta del código).
 
 ## Índice GIN (pg_trgm) para búsqueda de productos — COMPLETADO
 
@@ -1174,6 +1228,68 @@ Nota: con el catálogo actual (pequeño), Postgres puede seguir eligiendo
 Seq Scan en vez del índice — comportamiento esperado del query
 planner con tablas chicas, no indica que el índice esté mal. El
 beneficio se hace evidente cuando el catálogo crezca.
+
+## Suite de tests de integración (Postgres real vía Docker) — COMPLETADO
+
+Los 214 tests unitarios (repositories mockeados) no probaban que
+rutas + middlewares + Prisma trabajaran juntos correctamente contra
+una DB real. Agregada infraestructura de integración separada
+(vitest.integration.config.ts, docker-compose.test.yml para Postgres
+efímero local, servicio de Postgres nativo en CI).
+
+Aislamiento entre tests: TRUNCATE de todas las tablas antes de cada
+test (no transacciones-con-rollback) — decisión consciente por
+simplicidad/confiabilidad sobre velocidad; si el suite crece mucho y
+se vuelve lento, ahí se evalúa el patrón de transacción por test.
+
+Cierra el TODO pendiente desde la mejora #21: JobWorker.claimBatch()
+(FOR UPDATE SKIP LOCKED) ya tiene test contra DB real, incluyendo
+respeto de nextAttemptAt y batchSize.
+
+Cubre además: flujo completo de auth (registro→login→ruta protegida),
+y el flujo más crítico del negocio — checkout→webhook de Wompi→orden
+PAID→stock decrementado→job de guía encolado —, incluyendo un test de
+idempotencia (mismo webhook recibido dos veces no duplica la
+transición ni el job).
+
+.env.test se commitea (valores dummy/locales, mismo criterio que las
+env vars de CI de la mejora #22 — no son secretos reales).
+
+Alcance intencional: no es cobertura total de todos los endpoints,
+son los 2-3 flujos de mayor riesgo de negocio. Patrón queda listo
+para extender con más casos según se necesite.
+
+## Dockerfile de producción — COMPLETADO
+
+Sin Dockerfile no había forma reproducible de construir la imagen para
+desplegar en un contenedor. Agregado Dockerfile multi-stage (build +
+runtime), imagen base node:24-slim (no alpine, evita problemas de
+compatibilidad musl con los binarios de Prisma sin tener que
+configurar binaryTargets a mano).
+
+Decisión importante: el stage final copia los node_modules ya
+resueltos del stage de build en vez de reinstalar con --omit=dev.
+Motivo: "prisma" (CLI) vive en devDependencies a propósito (no se usa
+en runtime), pero el postinstall (prisma generate) se dispara en
+cualquier npm ci de este proyecto sin importar --omit=dev — un
+"npm ci --omit=dev" limpio en el stage final habría fallado
+buscando un CLI que no está instalado.
+
+Las migraciones NO corren automáticamente al arrancar el contenedor —
+se corren como paso separado (npm run prisma:migrate:deploy) antes de
+desplegar una imagen nueva, para evitar que varias réplicas intenten
+migrar a la vez.
+
+HEALTHCHECK reutiliza el endpoint /health (mejora #25, ya verifica
+conexión a la DB) — el orquestador detecta una instancia realmente
+caída, no solo un proceso vivo. Corre como usuario no-root (usuario
+"node" ya incluido en la imagen oficial, no se crea uno nuevo).
+
+Trade-off consciente: la imagen final incluye devDependencies (más
+pesada de lo estrictamente necesario) a cambio de simplicidad — evita
+tener que copiar selectivamente solo el cliente de Prisma generado.
+Optimizar esto queda como mejora futura si el tamaño de imagen se
+vuelve un problema real.
 
 ## Estado actual del proyecto (actualizado)
 
