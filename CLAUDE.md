@@ -1147,6 +1147,7 @@ vía src/instrument.ts, cargado con --import antes que el resto de la
 app (requisito de la auto-instrumentación ESM).
 
 Dos problemas encontrados y corregidos durante la implementación:
+
 1. El script "dev" combinaba --import con el binario de tsx de forma
    incorrecta (node intentaba ejecutar el script de shell de tsx como
    módulo JS) — se resolvió usando NODE_OPTIONS vía cross-env
