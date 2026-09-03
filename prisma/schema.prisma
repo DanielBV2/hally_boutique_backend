@@ -95,6 +95,9 @@ model User {
   refreshTokens        RefreshToken[]
   passwordResetTokens  PasswordResetToken[]
 
+  productsDeactivated  Product[]     @relation("ProductDeactivatedBy")
+  variantsDeactivated  Variant[]     @relation("VariantDeactivatedBy")
+
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -186,6 +189,10 @@ model Product {
   images        ProductImage[]
   variants      Variant[]
 
+  deactivatedAt   DateTime?
+  deactivatedById String?
+  deactivatedBy   User?     @relation("ProductDeactivatedBy", fields: [deactivatedById], references: [id], onDelete: SetNull)
+
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
@@ -221,6 +228,10 @@ model Variant {
 
   cartItems   CartItem[]
   orderItems  OrderItem[]
+
+  deactivatedAt   DateTime?
+  deactivatedById String?
+  deactivatedBy   User?     @relation("VariantDeactivatedBy", fields: [deactivatedById], references: [id], onDelete: SetNull)
 
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt

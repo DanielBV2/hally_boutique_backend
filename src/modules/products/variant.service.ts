@@ -27,8 +27,9 @@ export interface VariantService {
     productId: string,
     variantId: string,
     data: UpdateVariantInput,
+    actingUserId: string,
   ): Promise<VariantAdminDTO>;
-  deleteVariant(productId: string, variantId: string): Promise<void>;
+  deleteVariant(productId: string, variantId: string, actingUserId: string): Promise<void>;
 }
 
 function toAdminDTO(
@@ -125,6 +126,7 @@ export class VariantServiceImpl implements VariantService {
     productId: string,
     variantId: string,
     data: UpdateVariantInput,
+    actingUserId: string,
   ): Promise<VariantAdminDTO> {
     const product = await this.productRepo.findById(productId);
     if (!product) {
@@ -156,12 +158,16 @@ export class VariantServiceImpl implements VariantService {
       priceDelta: data.priceDelta,
       sku: data.sku,
       isActive: data.isActive,
+      ...(data.isActive === false
+        ? { deactivatedAt: new Date(), deactivatedById: actingUserId }
+        : {}),
+      ...(data.isActive === true ? { deactivatedAt: null, deactivatedById: null } : {}),
     });
 
     return toAdminDTO(variant, basePrice);
   }
 
-  async deleteVariant(productId: string, variantId: string): Promise<void> {
+  async deleteVariant(productId: string, variantId: string, actingUserId: string): Promise<void> {
     const product = await this.productRepo.findById(productId);
     if (!product) {
       throw new NotFoundError("Product");
@@ -172,6 +178,6 @@ export class VariantServiceImpl implements VariantService {
       throw new NotFoundError("Variant");
     }
 
-    await this.variantRepo.softDelete(variantId);
+    await this.variantRepo.softDelete(variantId, actingUserId);
   }
 }

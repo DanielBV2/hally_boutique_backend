@@ -83,7 +83,7 @@ export class ProductController {
   update = async (req: Request, res: Response) => {
     const { id } = req.params as { id: string };
     const data = req.body as UpdateProductInput;
-    const product = await this.service.updateProduct(id, data);
+    const product = await this.service.updateProduct(id, data, req.user!.id);
 
     const body: ApiResponse<typeof product> = { success: true, data: product };
     res.status(200).json(body);
@@ -91,7 +91,7 @@ export class ProductController {
 
   remove = async (req: Request, res: Response) => {
     const { id } = req.params as { id: string };
-    await this.service.deleteProduct(id);
+    await this.service.deleteProduct(id, req.user!.id);
 
     const body: ApiResponse<null> = { success: true, data: null };
     res.status(200).json(body);
