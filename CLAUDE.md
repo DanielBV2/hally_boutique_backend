@@ -1332,6 +1332,30 @@ Dos limpiezas menores pendientes desde el análisis inicial:
    que ya tiene el mismo default validado — se eliminó el fallback
    manual duplicado.
 
+## Auditoría de soft delete (productos y variantes) — COMPLETADO
+
+isActive: false (soft delete) no registraba quién lo hacía ni cuándo —
+ni en Product ni en ProductVariant (mismo patrón en ambos, se
+corrigió en los dos a la vez por consistencia, aunque el hallazgo
+original solo mencionaba productos).
+
+Agregado deactivatedAt + deactivatedById (relación a User, onDelete:
+SetNull para no bloquear un eventual borrado de usuarios admin) en
+ambos modelos. Se registra tanto al desactivar vía el endpoint DELETE
+dedicado como vía PATCH (isActive: false) — y se LIMPIA automáticamente
+al reactivar (isActive: true), para que el rastro no quede
+desactualizado.
+
+Decisión sobre exposición vía API: los campos de auditoría quedan SOLO
+en la base de datos, no se exponen en ningún DTO. `ProductDetailDTO` es
+compartido entre la ruta pública GET /products/:slug (sin
+roleMiddleware) y la respuesta admin del PATCH /:id — ambos usan el
+mismo `toDetailDTO()`. Exponerlos ahí filtraría el ID del admin (y el
+momento) en una respuesta pública. Esos campos son consultables
+directamente en BD cuando hace falta auditar; para exponerlos de forma
+segura habría que separar respuesta admin y pública, algo que no tiene
+sentido hacer aún con un solo PATCH admin.
+
 ## Estado actual del proyecto (actualizado)
 
 - [x] Schema de Prisma completo y migrado

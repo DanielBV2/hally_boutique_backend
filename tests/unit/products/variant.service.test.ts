@@ -202,21 +202,87 @@ describe("VariantServiceImpl", () => {
     });
   });
 
+  describe("updateVariant", () => {
+    it("setea la auditoría de desactivación cuando isActive es false", async () => {
+      vi.mocked(productRepo.findById).mockResolvedValue(makeProduct());
+      vi.mocked(variantRepo.findById).mockResolvedValue(makeVariant());
+      vi.mocked(variantRepo.update).mockResolvedValue(makeVariant());
+
+      await service.updateVariant("prod-1", "var-1", { isActive: false }, "admin-1");
+
+      expect(variantRepo.update).toHaveBeenCalledWith(
+        "var-1",
+        expect.objectContaining({
+          isActive: false,
+          deactivatedById: "admin-1",
+        }),
+      );
+      const updateData = vi.mocked(variantRepo.update).mock.calls[0][1] as Record<string, unknown>;
+      expect(updateData.deactivatedAt).toBeInstanceOf(Date);
+      expect(updateData.deactivatedById).toBe("admin-1");
+    });
+
+    it("limpia deactivatedAt/deactivatedById al reactivar (isActive: true)", async () => {
+      vi.mocked(productRepo.findById).mockResolvedValue(makeProduct());
+      vi.mocked(variantRepo.findById).mockResolvedValue(makeVariant());
+      vi.mocked(variantRepo.update).mockResolvedValue(makeVariant());
+
+      await service.updateVariant("prod-1", "var-1", { isActive: true }, "admin-1");
+
+      expect(variantRepo.update).toHaveBeenCalledWith(
+        "var-1",
+        expect.objectContaining({
+          isActive: true,
+          deactivatedAt: null,
+          deactivatedById: null,
+        }),
+      );
+    });
+
+    it("no agrega auditoría si no se envía isActive", async () => {
+      vi.mocked(productRepo.findById).mockResolvedValue(makeProduct());
+      vi.mocked(variantRepo.findById).mockResolvedValue(makeVariant());
+      vi.mocked(variantRepo.update).mockResolvedValue(makeVariant());
+
+      await service.updateVariant("prod-1", "var-1", { stock: 5 }, "admin-1");
+
+      expect(variantRepo.update).toHaveBeenCalledWith(
+        "var-1",
+        expect.objectContaining({ stock: 5 }),
+      );
+      const updateData = vi.mocked(variantRepo.update).mock.calls[0][1] as Record<string, unknown>;
+      expect(updateData.deactivatedAt).toBeUndefined();
+      expect(updateData.deactivatedById).toBeUndefined();
+    });
+
+    it("lanza NotFoundError si la variante no pertenece al producto", async () => {
+      vi.mocked(productRepo.findById).mockResolvedValue(makeProduct());
+      vi.mocked(variantRepo.findById).mockResolvedValue(makeVariant({ productId: "otro-prod" }));
+
+      await expect(
+        service.updateVariant("prod-1", "var-1", { isActive: false }, "admin-1"),
+      ).rejects.toThrow(NotFoundError);
+      expect(variantRepo.update).not.toHaveBeenCalled();
+    });
+  });
+
   describe("deleteVariant", () => {
     it("llama a softDelete (isActive: false) y nunca a borrado físico", async () => {
       vi.mocked(productRepo.findById).mockResolvedValue(makeProduct());
       vi.mocked(variantRepo.findById).mockResolvedValue(makeVariant());
 
-      await service.deleteVariant("prod-1", "var-1");
+      await service.deleteVariant("prod-1", "var-1", "admin-1");
 
-      expect(variantRepo.softDelete).toHaveBeenCalledWith("var-1");
+      expect(variantRepo.softDelete).toHaveBeenCalledWith("var-1", "admin-1");
       expect(variantRepo.softDelete).toHaveBeenCalledOnce();
     });
 
     it("lanza NotFoundError si el producto no existe", async () => {
       vi.mocked(productRepo.findById).mockResolvedValue(null);
 
-      await expect(service.deleteVariant("nonexistent", "var-1")).rejects.toThrow(NotFoundError);
+      await expect(service.deleteVariant("nonexistent", "var-1", "admin-1")).rejects.toThrow(
+        NotFoundError,
+      );
       expect(variantRepo.softDelete).not.toHaveBeenCalled();
     });
 
@@ -224,7 +290,9 @@ describe("VariantServiceImpl", () => {
       vi.mocked(productRepo.findById).mockResolvedValue(makeProduct());
       vi.mocked(variantRepo.findById).mockResolvedValue(null);
 
-      await expect(service.deleteVariant("prod-1", "var-1")).rejects.toThrow(NotFoundError);
+      await expect(service.deleteVariant("prod-1", "var-1", "admin-1")).rejects.toThrow(
+        NotFoundError,
+      );
       expect(variantRepo.softDelete).not.toHaveBeenCalled();
     });
   });

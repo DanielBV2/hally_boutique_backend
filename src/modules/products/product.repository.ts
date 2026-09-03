@@ -64,8 +64,8 @@ export interface ProductRepository {
   slugExists(slug: string, excludeId?: string): Promise<boolean>;
   categoryExists(categoryId: string): Promise<boolean>;
   create(data: CreateProductData): Promise<ProductWithRelations>;
-  update(id: string, data: Partial<CreateProductData>): Promise<ProductWithRelations>;
-  softDelete(id: string): Promise<void>;
+  update(id: string, data: Prisma.ProductUncheckedUpdateInput): Promise<ProductWithRelations>;
+  softDelete(id: string, deactivatedById: string): Promise<void>;
   addImage(
     productId: string,
     data: AddImageData,
@@ -179,7 +179,7 @@ export class PrismaProductRepository implements ProductRepository {
     });
   }
 
-  async update(id: string, data: Partial<CreateProductData>) {
+  async update(id: string, data: Prisma.ProductUncheckedUpdateInput) {
     return this.prisma.product.update({
       where: { id },
       data,
@@ -187,10 +187,10 @@ export class PrismaProductRepository implements ProductRepository {
     });
   }
 
-  async softDelete(id: string) {
+  async softDelete(id: string, deactivatedById: string) {
     await this.prisma.product.update({
       where: { id },
-      data: { isActive: false },
+      data: { isActive: false, deactivatedAt: new Date(), deactivatedById },
     });
   }
 

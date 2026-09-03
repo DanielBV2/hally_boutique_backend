@@ -7,6 +7,7 @@ import type {
   ProductWithListRelations,
 } from "./product.repository.js";
 import type { ProductListItemDTO, ProductDetailDTO } from "./product.dto.js";
+import type { Prisma } from "@prisma/client";
 import { NotFoundError } from "../../shared/errors/app-error.js";
 import { generateUniqueSlug } from "../../shared/utils/slugify.js";
 
@@ -47,8 +48,12 @@ export interface ProductService {
   ): Promise<{ items: ProductListItemDTO[]; total: number }>;
   getProductBySlug(slug: string): Promise<ProductDetailDTO>;
   createProduct(data: CreateProductInput): Promise<ProductDetailDTO>;
-  updateProduct(id: string, data: UpdateProductInput): Promise<ProductDetailDTO>;
-  deleteProduct(id: string): Promise<void>;
+  updateProduct(
+    id: string,
+    data: UpdateProductInput,
+    actingUserId: string,
+  ): Promise<ProductDetailDTO>;
+  deleteProduct(id: string, actingUserId: string): Promise<void>;
   addProductImage(productId: string, data: AddImageInput): Promise<void>;
   removeProductImage(productId: string, imageId: string): Promise<void>;
 }
@@ -140,7 +145,7 @@ export class ProductServiceImpl implements ProductService {
     return toDetailDTO(product);
   }
 
-  async updateProduct(id: string, data: UpdateProductInput) {
+  async updateProduct(id: string, data: UpdateProductInput, actingUserId: string) {
     const existing = await this.repository.findById(id);
     if (!existing) {
       throw new NotFoundError("Product");
@@ -153,7 +158,7 @@ export class ProductServiceImpl implements ProductService {
       }
     }
 
-    const updateData: Record<string, string | number | boolean> = {};
+    const updateData: Prisma.ProductUncheckedUpdateInput = {};
 
     if (data.name !== undefined) updateData.name = data.name;
     if (data.description !== undefined) updateData.description = data.description;
@@ -161,7 +166,15 @@ export class ProductServiceImpl implements ProductService {
     if (data.currency !== undefined) updateData.currency = data.currency;
     if (data.weightGrams !== undefined) updateData.weightGrams = data.weightGrams;
     if (data.categoryId !== undefined) updateData.categoryId = data.categoryId;
-    if (data.isActive !== undefined) updateData.isActive = data.isActive;
+    if (data.isActive === false) {
+      updateData.isActive = false;
+      updateData.deactivatedAt = new Date();
+      updateData.deactivatedById = actingUserId;
+    } else if (data.isActive === true) {
+      updateData.isActive = true;
+      updateData.deactivatedAt = null;
+      updateData.deactivatedById = null;
+    }
 
     if (data.name !== undefined) {
       updateData.slug = await generateUniqueSlug(data.name, (slug) =>
@@ -173,12 +186,12 @@ export class ProductServiceImpl implements ProductService {
     return toDetailDTO(product);
   }
 
-  async deleteProduct(id: string) {
+  async deleteProduct(id: string, actingUserId: string) {
     const existing = await this.repository.findById(id);
     if (!existing) {
       throw new NotFoundError("Product");
     }
-    await this.repository.softDelete(id);
+    await this.repository.softDelete(id, actingUserId);
   }
 
   async addProductImage(productId: string, data: AddImageInput) {

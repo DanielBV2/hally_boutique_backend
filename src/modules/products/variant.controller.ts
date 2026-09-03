@@ -29,7 +29,7 @@ export class VariantController {
       variantId: string;
     };
     const data = req.body as UpdateVariantInput;
-    const variant = await this.service.updateVariant(productId, variantId, data);
+    const variant = await this.service.updateVariant(productId, variantId, data, req.user!.id);
 
     const body: ApiResponse<typeof variant> = { success: true, data: variant };
     res.status(200).json(body);
@@ -40,7 +40,7 @@ export class VariantController {
       productId: string;
       variantId: string;
     };
-    await this.service.deleteVariant(productId, variantId);
+    await this.service.deleteVariant(productId, variantId, req.user!.id);
 
     const body: ApiResponse<null> = { success: true, data: null };
     res.status(200).json(body);

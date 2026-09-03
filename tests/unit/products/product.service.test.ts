@@ -298,20 +298,45 @@ describe("ProductServiceImpl", () => {
   });
 
   describe("updateProduct", () => {
-    it("propaga isActive al repository cuando se envía", async () => {
+    it("propaga isActive false al repository y setea la auditoría de desactivación", async () => {
       vi.mocked(productRepo.findById).mockResolvedValue(makeProduct());
       vi.mocked(productRepo.update).mockResolvedValue(makeProduct());
 
-      await service.updateProduct("prod-1", { isActive: false });
+      await service.updateProduct("prod-1", { isActive: false }, "admin-1");
 
-      expect(productRepo.update).toHaveBeenCalledWith("prod-1", { isActive: false });
+      expect(productRepo.update).toHaveBeenCalledWith(
+        "prod-1",
+        expect.objectContaining({
+          isActive: false,
+          deactivatedById: "admin-1",
+        }),
+      );
+      const updateData = vi.mocked(productRepo.update).mock.calls[0][1] as Record<string, unknown>;
+      expect(updateData.deactivatedAt).toBeInstanceOf(Date);
+      expect(updateData.deactivatedById).toBe("admin-1");
     });
 
-    it("no envía isActive cuando el campo no llega", async () => {
+    it("limpia deactivatedAt/deactivatedById al reactivar (isActive: true)", async () => {
       vi.mocked(productRepo.findById).mockResolvedValue(makeProduct());
       vi.mocked(productRepo.update).mockResolvedValue(makeProduct());
 
-      await service.updateProduct("prod-1", { name: "Nuevo nombre" });
+      await service.updateProduct("prod-1", { isActive: true }, "admin-1");
+
+      expect(productRepo.update).toHaveBeenCalledWith(
+        "prod-1",
+        expect.objectContaining({
+          isActive: true,
+          deactivatedAt: null,
+          deactivatedById: null,
+        }),
+      );
+    });
+
+    it("no envía isActive ni auditoría cuando el campo no llega", async () => {
+      vi.mocked(productRepo.findById).mockResolvedValue(makeProduct());
+      vi.mocked(productRepo.update).mockResolvedValue(makeProduct());
+
+      await service.updateProduct("prod-1", { name: "Nuevo nombre" }, "admin-1");
 
       expect(productRepo.update).toHaveBeenCalledWith(
         "prod-1",
@@ -319,6 +344,8 @@ describe("ProductServiceImpl", () => {
       );
       const updateData = vi.mocked(productRepo.update).mock.calls[0][1] as Record<string, unknown>;
       expect(updateData.isActive).toBeUndefined();
+      expect(updateData.deactivatedAt).toBeUndefined();
+      expect(updateData.deactivatedById).toBeUndefined();
     });
   });
 
@@ -326,16 +353,16 @@ describe("ProductServiceImpl", () => {
     it("llama a softDelete (isActive: false) y nunca a borrado físico", async () => {
       vi.mocked(productRepo.findById).mockResolvedValue(makeProduct());
 
-      await service.deleteProduct("prod-1");
+      await service.deleteProduct("prod-1", "admin-1");
 
-      expect(productRepo.softDelete).toHaveBeenCalledWith("prod-1");
+      expect(productRepo.softDelete).toHaveBeenCalledWith("prod-1", "admin-1");
       expect(productRepo.softDelete).toHaveBeenCalledOnce();
     });
 
     it("lanza NotFoundError si el producto no existe", async () => {
       vi.mocked(productRepo.findById).mockResolvedValue(null);
 
-      await expect(service.deleteProduct("nonexistent")).rejects.toThrow(NotFoundError);
+      await expect(service.deleteProduct("nonexistent", "admin-1")).rejects.toThrow(NotFoundError);
       expect(productRepo.softDelete).not.toHaveBeenCalled();
     });
   });

@@ -14,6 +14,8 @@ export interface UpdateVariantData {
   priceDelta?: number | undefined;
   sku?: string | undefined;
   isActive?: boolean | undefined;
+  deactivatedAt?: Date | null | undefined;
+  deactivatedById?: string | null | undefined;
 }
 
 export interface VariantRepository {
@@ -34,7 +36,7 @@ export interface VariantRepository {
     id: string,
     data: UpdateVariantData,
   ): Promise<Prisma.VariantGetPayload<Record<string, never>>>;
-  softDelete(id: string): Promise<void>;
+  softDelete(id: string, deactivatedById: string): Promise<void>;
   decrementStockIfAvailable(
     variantId: string,
     quantity: number,
@@ -97,11 +99,13 @@ export class PrismaVariantRepository implements VariantRepository {
   }
 
   async update(id: string, data: UpdateVariantData) {
-    const updateData: Prisma.VariantUpdateInput = {};
+    const updateData: Prisma.VariantUncheckedUpdateInput = {};
     if (data.stock !== undefined) updateData.stock = data.stock;
     if (data.priceDelta !== undefined) updateData.priceDelta = data.priceDelta;
     if (data.sku !== undefined) updateData.sku = data.sku;
     if (data.isActive !== undefined) updateData.isActive = data.isActive;
+    if (data.deactivatedAt !== undefined) updateData.deactivatedAt = data.deactivatedAt;
+    if (data.deactivatedById !== undefined) updateData.deactivatedById = data.deactivatedById;
 
     return this.prisma.variant.update({
       where: { id },
@@ -109,10 +113,10 @@ export class PrismaVariantRepository implements VariantRepository {
     });
   }
 
-  async softDelete(id: string) {
+  async softDelete(id: string, deactivatedById: string) {
     await this.prisma.variant.update({
       where: { id },
-      data: { isActive: false },
+      data: { isActive: false, deactivatedAt: new Date(), deactivatedById },
     });
   }
 
