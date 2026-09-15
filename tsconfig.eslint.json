@@ -6,7 +6,8 @@
     "eslint.config.js",
     "vitest.config.ts",
     "vitest.integration.config.ts",
-    "prisma.config.mts"
+    "prisma.config.mts",
+    "prisma/seed-e2e.ts"
   ],
   "compilerOptions": {
     "noEmit": true

@@ -90,6 +90,21 @@ cada push/PR a `main`.
 npm test
 ```
 
+## Entorno E2E (Playwright)
+
+Levanta un backend real en un entorno aislado (puerto 3010) para que el
+frontend corra sus pruebas E2E contra datos sembrados:
+
+```bash
+npm run docker:test:up
+npm run seed:e2e        # puebla la DB de test (categoría + producto + variantes, idempotente)
+npm run dev:test        # servidor en watch sobre .env.test (localhost:3010)
+npm run docker:test:down
+```
+
+El seed loguea el slug del producto sembrado — el frontend lo usa en sus
+pruebas de checkout.
+
 ## Docker
 
 ```bash
